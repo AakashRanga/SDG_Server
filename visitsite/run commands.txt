@@ -1,0 +1,3 @@
+server -> node update_server.js
+website3.0 -> npm run dev
+visitsite -> npm run dev

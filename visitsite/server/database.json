@@ -1,0 +1,68 @@
+{
+  "greenOffice": {
+    "members": [
+      {
+        "id": 1,
+        "name": "Dr. Rama",
+        "position": "Dean of Research",
+        "email": "rama@gmail.com",
+        "phone": "1234567890",
+        "image": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+      },
+      {
+        "id": 2,
+        "name": "Dr. V. Deepak",
+        "position": "Director",
+        "email": "deepak@gmail.com",
+        "phone": "1234567899",
+        "image": "/uploads/1762248333948.JPG"
+      }
+    ],
+    "missions": [
+      {
+        "id": 1,
+        "title": "Carbon Neutrality by 2030",
+        "description": "Achieve carbon neutrality across all campus operations by 2030 through renewable energy and sustainable practices."
+      }
+    ],
+    "commitments": [
+      {
+        "id": 1,
+        "title": "100% Renewable Energy",
+        "description": "Transition all campus buildings to 100% renewable energy sources",
+        "targetDate": "2028-12-31"
+      }
+    ],
+    "milestones": [
+      {
+        "id": 1,
+        "title": "Solar Panel Installation",
+        "description": "Install solar panels on campus buildings",
+        "date": "2023-09-15",
+        "status": "completed"
+      }
+    ]
+  },
+  "committees": [
+    {
+      "id": 1,
+      "name": "Energy & Climate Committee",
+      "description": "Focuses on reducing campus energy consumption and climate change initiatives",
+      "members": [
+        {
+          "id": 1,
+          "name": "Prof. David Martinez",
+          "position": "Committee Chair",
+          "email": "david.martinez@university.edu",
+          "phone": "+1 (555) 456-7890",
+          "image": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop"
+        }
+      ],
+      "meetingMinutes": []
+    }
+  ],
+  "studentCouncil": {
+    "members": [],
+    "meetingMinutes": []
+  }
+}
