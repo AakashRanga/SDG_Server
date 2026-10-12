@@ -147,7 +147,7 @@ const AnimatedCounter = ({
 };
 
 const GreenMetricsArtwork = () => (
-  <div className="relative w-36 h-28 sm:w-44 sm:h-34 flex items-center justify-center flex-shrink-0">
+  <div className="relative w-28 h-24 sm:w-32 sm:h-28 lg:w-36 lg:h-30 flex items-center justify-center flex-shrink-0">
     <div className="absolute inset-0 bg-teal-400/25 rounded-full blur-2xl transform scale-90" />
     <svg viewBox="0 0 160 135" className="w-full h-full relative z-10" fill="none">
       <defs>
@@ -185,7 +185,7 @@ const GreenMetricsArtwork = () => (
 );
 
 const QSSustainabilityArtwork = () => (
-  <div className="relative w-36 h-28 sm:w-44 sm:h-34 flex items-center justify-center flex-shrink-0">
+  <div className="relative w-28 h-24 sm:w-32 sm:h-28 lg:w-36 lg:h-30 flex items-center justify-center flex-shrink-0">
     <div className="absolute inset-0 bg-emerald-400/25 rounded-full blur-2xl transform scale-90" />
     <svg viewBox="0 0 160 135" className="w-full h-full relative z-10" fill="none">
       <defs>
@@ -224,7 +224,7 @@ const QSSustainabilityArtwork = () => (
 );
 
 const THEImpactArtwork = () => (
-  <div className="relative w-36 h-28 sm:w-44 sm:h-34 flex items-center justify-center flex-shrink-0">
+  <div className="relative w-28 h-24 sm:w-32 sm:h-28 lg:w-36 lg:h-30 flex items-center justify-center flex-shrink-0">
     <div className="absolute inset-0 bg-amber-400/20 rounded-full blur-2xl transform scale-90" />
     <svg viewBox="0 0 160 135" className="w-full h-full relative z-10" fill="none">
       <defs>
@@ -348,10 +348,10 @@ const renderBoxArtwork = (box: RankingBoxItem) => {
   if (box.ranking_slug === 'qs-sustainability') return <QSSustainabilityArtwork />;
   if (box.ranking_slug === 'the-impact-rankings') return <THEImpactArtwork />;
   return (
-    <div className="relative w-36 h-28 sm:w-44 sm:h-34 flex items-center justify-center flex-shrink-0">
+    <div className="relative w-28 h-24 sm:w-32 sm:h-28 lg:w-36 lg:h-30 flex items-center justify-center flex-shrink-0">
       <div className="absolute inset-0 bg-indigo-500/20 rounded-full blur-2xl transform scale-90" />
-      <div className="relative z-10 w-20 h-20 rounded-2xl flex items-center justify-center shadow-2xl border border-white/20 bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-md">
-        <span className="text-4xl drop-shadow-md">{box.icon || '🏆'}</span>
+      <div className="relative z-10 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center shadow-2xl border border-white/20 bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-md">
+        <span className="text-3xl sm:text-4xl drop-shadow-md">{box.icon || '🏆'}</span>
       </div>
     </div>
   );
@@ -529,30 +529,30 @@ export function RankingSite() {
                     whileTap={{ scale: 0.99 }}
                     transition={{ duration: 0.25 }}
                     onClick={() => navigate(`/ranking-data/site/faq/${box.ranking_slug}`)}
-                    className={`group relative rounded-3xl p-6 sm:p-7 overflow-hidden cursor-pointer shadow-xl hover:shadow-2xl border transition-all ${style.bg} ${style.border} ${style.shadow}`}
+                    className={`group relative rounded-3xl p-5 sm:p-6 overflow-hidden cursor-pointer shadow-xl hover:shadow-2xl border transition-all ${style.bg} ${style.border} ${style.shadow}`}
                   >
                     {/* Background matrix texture */}
                     <div className={`absolute inset-0 opacity-15 [background-size:16px_16px] pointer-events-none ${style.gridPattern}`} />
                     {/* Subtle shine sweep */}
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
 
-                    <div className="relative z-10 flex items-center justify-between gap-4 h-full">
-                      <div className="flex flex-col justify-between h-full py-1">
+                    <div className="relative z-10 flex items-center justify-between gap-3 h-full">
+                      <div className="flex flex-col justify-between h-full py-1 min-w-0 flex-1">
                         <div>
-                          <span className={`text-[11px] font-black uppercase tracking-widest mb-2 block ${style.tagColor}`}>
+                          <span className={`text-[11px] font-black uppercase tracking-widest mb-1.5 block ${style.tagColor}`}>
                             {box.tag_label || 'RANKINGS'}
                           </span>
-                          <h3 className="text-2xl sm:text-3xl font-black uppercase text-white tracking-tight leading-tight mb-2 drop-shadow-sm whitespace-pre-line">
+                          <h3 className="text-xl sm:text-2xl font-black uppercase text-white tracking-tight leading-snug mb-2 drop-shadow-sm whitespace-pre-line break-words">
                             {box.box_title || box.ranking_name}
                           </h3>
-                          <p className={`text-xs line-clamp-2 max-w-[170px] mb-4 ${style.descColor}`}>
+                          <p className={`text-xs line-clamp-2 max-w-[185px] mb-4 ${style.descColor}`}>
                             {box.description}
                           </p>
                         </div>
 
                         <button
                           type="button"
-                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/10 text-white border border-white/20 backdrop-blur-md group-hover:bg-white group-hover:text-gray-900 transition-all duration-300 w-fit shadow-xs"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/10 text-white border border-white/20 backdrop-blur-md group-hover:bg-white group-hover:text-gray-900 transition-all duration-300 w-fit shadow-xs"
                         >
                           <span>{box.button_text || 'Explore'}</span>
                           <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
