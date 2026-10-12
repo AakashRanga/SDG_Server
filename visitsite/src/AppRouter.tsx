@@ -54,6 +54,7 @@ import { RankingData } from "./pages/RankingData";
 import { RankingSite } from "./pages/RankingSite";
 import { RankingDataProvider } from "./contexts/RankingDataContext";
 import { SDGConsolidatedView } from "./pages/SDGConsolidatedView";
+import { RankingFAQReference } from "./pages/RankingFAQReference";
 
 export function AppRouter() {
   return (
@@ -216,6 +217,14 @@ export function AppRouter() {
                         <Route
                           path="/ranking-data/site"
                           element={<RankingSite />}
+                        />
+                        <Route
+                          path="/ranking-data/site/faq"
+                          element={<RankingFAQReference />}
+                        />
+                        <Route
+                          path="/ranking-data/site/faq/:rankingSlug"
+                          element={<RankingFAQReference />}
                         />
                         <Route path="/ranking-data/site/:sdgSlug" element={<RankingSite />} />
                       </Routes>

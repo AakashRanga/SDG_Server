@@ -145,6 +145,130 @@ const AnimatedCounter = ({
   }, [end, duration]);
   return <span>{count}</span>;
 };
+
+const GreenMetricsArtwork = () => (
+  <div className="relative w-36 h-28 sm:w-44 sm:h-34 flex items-center justify-center flex-shrink-0">
+    <div className="absolute inset-0 bg-teal-400/25 rounded-full blur-2xl transform scale-90" />
+    <svg viewBox="0 0 160 135" className="w-full h-full relative z-10" fill="none">
+      <defs>
+        <linearGradient id="gmBoxTop" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#2dd4bf" />
+          <stop offset="100%" stopColor="#0f766e" />
+        </linearGradient>
+        <linearGradient id="gmBoxLeft" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#14b8a6" />
+          <stop offset="100%" stopColor="#042f2e" />
+        </linearGradient>
+        <linearGradient id="gmGlow" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#38bdf8" />
+          <stop offset="100%" stopColor="#4ade80" />
+        </linearGradient>
+      </defs>
+      {/* 3D Open Container */}
+      <polygon points="80,72 138,48 80,24 22,48" fill="url(#gmBoxTop)" opacity="0.95" />
+      <polygon points="22,48 80,72 80,116 22,92" fill="url(#gmBoxLeft)" />
+      <polygon points="80,72 138,48 138,92 80,116" fill="#0d524d" />
+      {/* Box Open Flaps */}
+      <polygon points="22,48 6,38 60,16 80,24" fill="#5eead4" opacity="0.85" />
+      <polygon points="138,48 154,38 100,16 80,24" fill="#2dd4bf" opacity="0.75" />
+      {/* Glowing Eco Orb inside */}
+      <circle cx="80" cy="42" r="21" fill="url(#gmGlow)" filter="drop-shadow(0 0 12px rgba(56,189,248,0.75))" />
+      <path d="M72,36 C75,28 85,28 88,36 C88,43 76,51 76,51" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.9" />
+      <circle cx="80" cy="42" r="15" fill="#042f2e" opacity="0.35" />
+      {/* Floating Green Leaves & Sparkles */}
+      <path d="M58,22 C60,15 68,14 70,19 C70,25 62,27 58,22 Z" fill="#4ade80" />
+      <circle cx="118" cy="26" r="3" fill="#ffffff" filter="drop-shadow(0 0 4px #38bdf8)" />
+      <circle cx="42" cy="38" r="2" fill="#ffffff" />
+      <circle cx="104" cy="62" r="2.5" fill="#5eead4" />
+    </svg>
+  </div>
+);
+
+const QSSustainabilityArtwork = () => (
+  <div className="relative w-36 h-28 sm:w-44 sm:h-34 flex items-center justify-center flex-shrink-0">
+    <div className="absolute inset-0 bg-emerald-400/25 rounded-full blur-2xl transform scale-90" />
+    <svg viewBox="0 0 160 135" className="w-full h-full relative z-10" fill="none">
+      <defs>
+        <linearGradient id="qsGreen1" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#4ade80" />
+          <stop offset="100%" stopColor="#15803d" />
+        </linearGradient>
+        <linearGradient id="qsGreen2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#22c55e" />
+          <stop offset="100%" stopColor="#052e16" />
+        </linearGradient>
+        <linearGradient id="qsBlade" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#86efac" />
+          <stop offset="100%" stopColor="#16a34a" />
+        </linearGradient>
+      </defs>
+      {/* 3D Sword / Pillar Blade */}
+      <polygon points="80,10 92,38 80,108 68,38" fill="url(#qsBlade)" opacity="0.9" filter="drop-shadow(0 0 8px rgba(74,222,128,0.5))" />
+      <polygon points="80,10 92,38 80,108" fill="#bbf7d0" opacity="0.6" />
+      {/* Left 3D Block */}
+      <polygon points="45,55 70,40 70,85 45,100" fill="url(#qsGreen2)" />
+      <polygon points="45,55 70,40 55,30 30,45" fill="url(#qsGreen1)" />
+      {/* Right 3D Block */}
+      <polygon points="90,40 115,55 115,100 90,85" fill="#14532d" />
+      <polygon points="90,40 115,55 130,45 105,30" fill="url(#qsGreen1)" />
+      {/* Central 3D Diamond with QS Star */}
+      <rect x="63" y="51" width="34" height="34" rx="8" fill="url(#qsGreen1)" transform="rotate(45 80 68)" stroke="#bbf7d0" strokeWidth="2" filter="drop-shadow(0 4px 10px rgba(0,0,0,0.4))" />
+      <text x="80" y="72" textAnchor="middle" fill="#ffffff" fontSize="13" fontWeight="900" fontFamily="sans-serif">
+        QS
+      </text>
+      {/* Sparkles */}
+      <circle cx="125" cy="22" r="3" fill="#ffffff" filter="drop-shadow(0 0 5px #4ade80)" />
+      <circle cx="34" cy="34" r="2" fill="#86efac" />
+    </svg>
+  </div>
+);
+
+const THEImpactArtwork = () => (
+  <div className="relative w-36 h-28 sm:w-44 sm:h-34 flex items-center justify-center flex-shrink-0">
+    <div className="absolute inset-0 bg-amber-400/20 rounded-full blur-2xl transform scale-90" />
+    <svg viewBox="0 0 160 135" className="w-full h-full relative z-10" fill="none">
+      <defs>
+        <linearGradient id="theBoxTop" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#475569" />
+          <stop offset="100%" stopColor="#1e293b" />
+        </linearGradient>
+        <linearGradient id="theBoxFront" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#334155" />
+          <stop offset="100%" stopColor="#0f172a" />
+        </linearGradient>
+        <linearGradient id="theGoldBadge" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#fde047" />
+          <stop offset="100%" stopColor="#d97706" />
+        </linearGradient>
+        <linearGradient id="theCyanBadge" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#38bdf8" />
+          <stop offset="100%" stopColor="#0284c7" />
+        </linearGradient>
+      </defs>
+      {/* Mystery / Impact Box Body */}
+      <polygon points="90,38 140,53 90,68 40,53" fill="url(#theBoxTop)" stroke="#64748b" strokeWidth="1" />
+      <polygon points="40,53 90,68 90,112 40,97" fill="url(#theBoxFront)" />
+      <polygon points="90,68 140,53 140,97 90,112" fill="#0f172a" />
+      {/* Box details */}
+      <text x="65" y="83" fill="#94a3b8" fontSize="10" fontWeight="900" transform="skewY(16)" letterSpacing="1">
+        IMPACT
+      </text>
+      <text x="65" y="96" fill="#cbd5e1" fontSize="9" fontWeight="900" transform="skewY(16)">
+        BOX
+      </text>
+      {/* Floating Golden Coin */}
+      <rect x="20" y="66" width="22" height="22" rx="5" fill="url(#theGoldBadge)" transform="rotate(-15 31 77)" stroke="#fef08a" strokeWidth="1.5" filter="drop-shadow(0 0 10px rgba(245,158,11,0.6))" />
+      <path d="M28,79 L31,74 L34,79" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" transform="rotate(-15 31 77)" />
+      {/* Floating Holographic Blue Chip */}
+      <rect x="122" y="20" width="20" height="20" rx="5" fill="url(#theCyanBadge)" transform="rotate(18 132 30)" stroke="#bae6fd" strokeWidth="1.5" filter="drop-shadow(0 0 12px rgba(56,189,248,0.8))" />
+      <path d="M129,33 L132,28 L135,33" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" transform="rotate(18 132 30)" />
+      {/* Sparkles */}
+      <circle cx="145" cy="48" r="2.5" fill="#ffffff" filter="drop-shadow(0 0 4px #38bdf8)" />
+      <circle cx="34" cy="48" r="2" fill="#fde047" />
+    </svg>
+  </div>
+);
+
 export function RankingSite() {
   const navigate = useNavigate();
   const {
@@ -288,6 +412,139 @@ export function RankingSite() {
     <section className="py-24 px-6 bg-gradient-to-b from-white to-amber-50">
       <div className="max-w-7xl mx-auto">
         {!selectedSDG ? <div>
+          {/* Sustainability Frameworks FAQ - 3 Interactive Boxes (Above Explore by SDG Goal) */}
+          <div className="mb-20">
+            {/* Eyebrow / Section Title Header */}
+            <div className="flex items-center gap-2 mb-6">
+              <div className="p-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                <SparklesIcon className="w-4 h-4 text-emerald-600" />
+              </div>
+              <span className="text-sm font-extrabold text-gray-900 uppercase tracking-wider">
+                Institutional Ranking FAQs & Evidence
+              </span>
+              <span className="h-px flex-1 bg-gradient-to-r from-gray-200 to-transparent ml-2" />
+            </div>
+
+            {/* The 3 Boxes Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Box 1: Green Metrics */}
+              <motion.div
+                whileHover={{ y: -6, scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                transition={{ duration: 0.25 }}
+                onClick={() => navigate('/ranking-data/site/faq/green-metrics')}
+                className="group relative rounded-3xl p-6 sm:p-7 overflow-hidden cursor-pointer shadow-xl hover:shadow-2xl hover:shadow-teal-900/30 border border-teal-500/30 hover:border-teal-400/80 transition-all bg-gradient-to-br from-[#0a2e33] via-[#082226] to-[#041518]"
+              >
+                {/* Background matrix texture */}
+                <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#2dd4bf_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+                {/* Subtle shine sweep */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
+
+                <div className="relative z-10 flex items-center justify-between gap-4 h-full">
+                  <div className="flex flex-col justify-between h-full py-1">
+                    <div>
+                      <span className="text-[11px] font-black uppercase tracking-widest text-teal-300/80 mb-2 block">
+                        UI GREENMETRIC
+                      </span>
+                      <h3 className="text-2xl sm:text-3xl font-black uppercase text-white tracking-tight leading-tight mb-2 drop-shadow-sm">
+                        GREEN<br />METRICS
+                      </h3>
+                      <p className="text-xs text-teal-100/70 line-clamp-2 max-w-[170px] mb-4">
+                        Campus setting, energy, waste, water & eco-education
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/10 text-white border border-white/20 backdrop-blur-md group-hover:bg-white group-hover:text-gray-900 transition-all duration-300 w-fit shadow-xs"
+                    >
+                      <span>Explore</span>
+                      <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+
+                  <GreenMetricsArtwork />
+                </div>
+              </motion.div>
+
+              {/* Box 2: QS Sustainability */}
+              <motion.div
+                whileHover={{ y: -6, scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                transition={{ duration: 0.25 }}
+                onClick={() => navigate('/ranking-data/site/faq/qs-sustainability')}
+                className="group relative rounded-3xl p-6 sm:p-7 overflow-hidden cursor-pointer shadow-xl hover:shadow-2xl hover:shadow-emerald-900/30 border border-emerald-500/30 hover:border-emerald-400/80 transition-all bg-gradient-to-br from-[#0b3818] via-[#082711] to-[#04160a]"
+              >
+                <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#4ade80_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
+
+                <div className="relative z-10 flex items-center justify-between gap-4 h-full">
+                  <div className="flex flex-col justify-between h-full py-1">
+                    <div>
+                      <span className="text-[11px] font-black uppercase tracking-widest text-emerald-300/80 mb-2 block">
+                        QS RANKINGS
+                      </span>
+                      <h3 className="text-2xl sm:text-3xl font-black uppercase text-white tracking-tight leading-tight mb-2 drop-shadow-sm">
+                        QS SUSTAIN<br />ABILITY
+                      </h3>
+                      <p className="text-xs text-emerald-100/70 line-clamp-2 max-w-[170px] mb-4">
+                        Environmental, social & governance impact metrics
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/10 text-white border border-white/20 backdrop-blur-md group-hover:bg-white group-hover:text-gray-900 transition-all duration-300 w-fit shadow-xs"
+                    >
+                      <span>Explore</span>
+                      <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+
+                  <QSSustainabilityArtwork />
+                </div>
+              </motion.div>
+
+              {/* Box 3: THE Impact Rankings */}
+              <motion.div
+                whileHover={{ y: -6, scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                transition={{ duration: 0.25 }}
+                onClick={() => navigate('/ranking-data/site/faq/the-impact-rankings')}
+                className="group relative rounded-3xl p-6 sm:p-7 overflow-hidden cursor-pointer shadow-xl hover:shadow-2xl hover:shadow-slate-900/40 border border-slate-600/40 hover:border-amber-400/80 transition-all bg-gradient-to-br from-[#162325] via-[#111c1e] to-[#0a1213]"
+              >
+                <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
+
+                <div className="relative z-10 flex items-center justify-between gap-4 h-full">
+                  <div className="flex flex-col justify-between h-full py-1">
+                    <div>
+                      <span className="text-[11px] font-black uppercase tracking-widest text-cyan-300/80 mb-2 block">
+                        TIMES HIGHER EDUCATION
+                      </span>
+                      <h3 className="text-2xl sm:text-3xl font-black uppercase text-white tracking-tight leading-tight mb-2 drop-shadow-sm">
+                        THE IMPACT<br />RANKINGS
+                      </h3>
+                      <p className="text-xs text-slate-200/70 line-clamp-2 max-w-[170px] mb-4">
+                        17 UN Sustainable Development Goals survey & evidence
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/10 text-white border border-white/20 backdrop-blur-md group-hover:bg-white group-hover:text-gray-900 transition-all duration-300 w-fit shadow-xs"
+                    >
+                      <span>Explore</span>
+                      <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+
+                  <THEImpactArtwork />
+                </div>
+              </motion.div>
+            </div>
+          </div>
+
           <motion.div initial={{
             opacity: 0,
             y: 50
