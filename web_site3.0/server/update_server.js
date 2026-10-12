@@ -48,6 +48,8 @@ import infrastructureBudgetRoutes from "./routes/infrastructureBudgetRoutes.js";
 
 // ranking data 
 import rankingDataRoutes from "./api/ranking-data/rankingData.js";
+import rankingFAQRoutes from "./api/ranking-faq/rankingFAQ.js";
+import authRoutes from "./routes/authRoutes.js";
 
 
 
@@ -88,6 +90,10 @@ app.use(express.static("public"));
 app.use(
   "/uploads/ranking-data",
   express.static(path.join(__dirname, "..", "uploads", "ranking-data"))
+);
+app.use(
+  "/uploads/ranking-faq",
+  express.static(path.join(__dirname, "..", "uploads", "ranking-faq"))
 );
 // Serve other uploads from the server uploads folder
 
@@ -164,6 +170,12 @@ app.use("/api/sustainability-reports", sustainabilityMetricsRoutes);
 
 // ranking data
 app.use("/api/ranking-data", rankingDataRoutes);
+
+// dedicated ranking FAQ (boxes + criteria questions)
+app.use("/api/ranking-faq", rankingFAQRoutes);
+
+// Authentication & Session Validation API
+app.use("/api/auth", authRoutes);
 
 
 

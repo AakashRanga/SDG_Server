@@ -120,7 +120,7 @@ const RANKING_INFO = {
   'Green Metrics': {
     color: 'from-blue-500 to-cyan-600',
     icon: '🌍',
-    description: 'UI GreenMetric World University Rankings'
+    description: 'GreenMetric World University Rankings'
   }
 };
 const AnimatedCounter = ({
@@ -269,10 +269,99 @@ const THEImpactArtwork = () => (
   </div>
 );
 
+const DEFAULT_BOXES: RankingBoxItem[] = [
+  {
+    ranking_slug: 'green-metrics',
+    ranking_name: 'Green Metrics',
+    tag_label: 'GREENMETRIC',
+    box_title: 'GREEN\nMETRICS',
+    description: 'Campus setting, energy, waste, water & eco-education',
+    button_text: 'Explore',
+    accent_color: '#10b981',
+    is_active: true,
+  },
+  {
+    ranking_slug: 'qs-sustainability',
+    ranking_name: 'QS Sustainability',
+    tag_label: 'QS RANKINGS',
+    box_title: 'QS SUSTAIN\nABILITY',
+    description: 'Environmental, social & governance impact metrics',
+    button_text: 'Explore',
+    accent_color: '#22c55e',
+    is_active: true,
+  },
+  {
+    ranking_slug: 'the-impact-rankings',
+    ranking_name: 'THE Impact Rankings',
+    tag_label: 'TIMES HIGHER EDUCATION',
+    box_title: 'THE IMPACT\nRANKINGS',
+    description: '17 UN Sustainable Development Goals survey & evidence',
+    button_text: 'Explore',
+    accent_color: '#38bdf8',
+    is_active: true,
+  }
+];
+
+const getBoxCardStyle = (slug: string) => {
+  if (slug === 'green-metrics') {
+    return {
+      bg: 'bg-gradient-to-br from-[#0a2e33] via-[#082226] to-[#041518]',
+      border: 'border-teal-500/30 hover:border-teal-400/80',
+      shadow: 'hover:shadow-teal-900/30',
+      tagColor: 'text-teal-300/80',
+      descColor: 'text-teal-100/70',
+      gridPattern: 'bg-[radial-gradient(#2dd4bf_1px,transparent_1px)]',
+    };
+  }
+  if (slug === 'qs-sustainability') {
+    return {
+      bg: 'bg-gradient-to-br from-[#0b3818] via-[#082711] to-[#04160a]',
+      border: 'border-emerald-500/30 hover:border-emerald-400/80',
+      shadow: 'hover:shadow-emerald-900/30',
+      tagColor: 'text-emerald-300/80',
+      descColor: 'text-emerald-100/70',
+      gridPattern: 'bg-[radial-gradient(#4ade80_1px,transparent_1px)]',
+    };
+  }
+  if (slug === 'the-impact-rankings') {
+    return {
+      bg: 'bg-gradient-to-br from-[#162325] via-[#111c1e] to-[#0a1213]',
+      border: 'border-slate-600/40 hover:border-amber-400/80',
+      shadow: 'hover:shadow-slate-900/40',
+      tagColor: 'text-cyan-300/80',
+      descColor: 'text-slate-200/70',
+      gridPattern: 'bg-[radial-gradient(#38bdf8_1px,transparent_1px)]',
+    };
+  }
+  return {
+    bg: 'bg-gradient-to-br from-[#1e1b4b] via-[#0f172a] to-[#020617]',
+    border: 'border-indigo-500/30 hover:border-indigo-400/80',
+    shadow: 'hover:shadow-indigo-900/30',
+    tagColor: 'text-indigo-300/80',
+    descColor: 'text-indigo-100/70',
+    gridPattern: 'bg-[radial-gradient(#818cf8_1px,transparent_1px)]',
+  };
+};
+
+const renderBoxArtwork = (box: RankingBoxItem) => {
+  if (box.ranking_slug === 'green-metrics') return <GreenMetricsArtwork />;
+  if (box.ranking_slug === 'qs-sustainability') return <QSSustainabilityArtwork />;
+  if (box.ranking_slug === 'the-impact-rankings') return <THEImpactArtwork />;
+  return (
+    <div className="relative w-36 h-28 sm:w-44 sm:h-34 flex items-center justify-center flex-shrink-0">
+      <div className="absolute inset-0 bg-indigo-500/20 rounded-full blur-2xl transform scale-90" />
+      <div className="relative z-10 w-20 h-20 rounded-2xl flex items-center justify-center shadow-2xl border border-white/20 bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-md">
+        <span className="text-4xl drop-shadow-md">{box.icon || '🏆'}</span>
+      </div>
+    </div>
+  );
+};
+
 export function RankingSite() {
   const navigate = useNavigate();
   const {
     rankingData,
+    rankingBoxes,
     getRankingDataBySDG,
     viewFile
   } = useRankingData();
@@ -280,6 +369,10 @@ export function RankingSite() {
   const [selectedSDG, setSelectedSDG] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredSDG, setHoveredSDG] = useState<number | null>(null);
+
+  const activeBoxes = (rankingBoxes && rankingBoxes.length > 0)
+    ? rankingBoxes.filter(b => b.is_active !== false)
+    : DEFAULT_BOXES;
   // Use ranking data from context but only include visible items for the public site
   const filteredData = selectedSDG
     ? getRankingDataBySDG(selectedSDG)
@@ -425,123 +518,52 @@ export function RankingSite() {
               <span className="h-px flex-1 bg-gradient-to-r from-gray-200 to-transparent ml-2" />
             </div>
 
-            {/* The 3 Boxes Grid */}
+            {/* Dynamic Ranking Boxes Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Box 1: Green Metrics */}
-              <motion.div
-                whileHover={{ y: -6, scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-                transition={{ duration: 0.25 }}
-                onClick={() => navigate('/ranking-data/site/faq/green-metrics')}
-                className="group relative rounded-3xl p-6 sm:p-7 overflow-hidden cursor-pointer shadow-xl hover:shadow-2xl hover:shadow-teal-900/30 border border-teal-500/30 hover:border-teal-400/80 transition-all bg-gradient-to-br from-[#0a2e33] via-[#082226] to-[#041518]"
-              >
-                {/* Background matrix texture */}
-                <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#2dd4bf_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-                {/* Subtle shine sweep */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
+              {activeBoxes.map((box) => {
+                const style = getBoxCardStyle(box.ranking_slug);
+                return (
+                  <motion.div
+                    key={box.id || box.ranking_slug}
+                    whileHover={{ y: -6, scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    transition={{ duration: 0.25 }}
+                    onClick={() => navigate(`/ranking-data/site/faq/${box.ranking_slug}`)}
+                    className={`group relative rounded-3xl p-6 sm:p-7 overflow-hidden cursor-pointer shadow-xl hover:shadow-2xl border transition-all ${style.bg} ${style.border} ${style.shadow}`}
+                  >
+                    {/* Background matrix texture */}
+                    <div className={`absolute inset-0 opacity-15 [background-size:16px_16px] pointer-events-none ${style.gridPattern}`} />
+                    {/* Subtle shine sweep */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
 
-                <div className="relative z-10 flex items-center justify-between gap-4 h-full">
-                  <div className="flex flex-col justify-between h-full py-1">
-                    <div>
-                      <span className="text-[11px] font-black uppercase tracking-widest text-teal-300/80 mb-2 block">
-                        UI GREENMETRIC
-                      </span>
-                      <h3 className="text-2xl sm:text-3xl font-black uppercase text-white tracking-tight leading-tight mb-2 drop-shadow-sm">
-                        GREEN<br />METRICS
-                      </h3>
-                      <p className="text-xs text-teal-100/70 line-clamp-2 max-w-[170px] mb-4">
-                        Campus setting, energy, waste, water & eco-education
-                      </p>
+                    <div className="relative z-10 flex items-center justify-between gap-4 h-full">
+                      <div className="flex flex-col justify-between h-full py-1">
+                        <div>
+                          <span className={`text-[11px] font-black uppercase tracking-widest mb-2 block ${style.tagColor}`}>
+                            {box.tag_label || 'RANKINGS'}
+                          </span>
+                          <h3 className="text-2xl sm:text-3xl font-black uppercase text-white tracking-tight leading-tight mb-2 drop-shadow-sm whitespace-pre-line">
+                            {box.box_title || box.ranking_name}
+                          </h3>
+                          <p className={`text-xs line-clamp-2 max-w-[170px] mb-4 ${style.descColor}`}>
+                            {box.description}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/10 text-white border border-white/20 backdrop-blur-md group-hover:bg-white group-hover:text-gray-900 transition-all duration-300 w-fit shadow-xs"
+                        >
+                          <span>{box.button_text || 'Explore'}</span>
+                          <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </button>
+                      </div>
+
+                      {renderBoxArtwork(box)}
                     </div>
-
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/10 text-white border border-white/20 backdrop-blur-md group-hover:bg-white group-hover:text-gray-900 transition-all duration-300 w-fit shadow-xs"
-                    >
-                      <span>Explore</span>
-                      <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                  </div>
-
-                  <GreenMetricsArtwork />
-                </div>
-              </motion.div>
-
-              {/* Box 2: QS Sustainability */}
-              <motion.div
-                whileHover={{ y: -6, scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-                transition={{ duration: 0.25 }}
-                onClick={() => navigate('/ranking-data/site/faq/qs-sustainability')}
-                className="group relative rounded-3xl p-6 sm:p-7 overflow-hidden cursor-pointer shadow-xl hover:shadow-2xl hover:shadow-emerald-900/30 border border-emerald-500/30 hover:border-emerald-400/80 transition-all bg-gradient-to-br from-[#0b3818] via-[#082711] to-[#04160a]"
-              >
-                <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#4ade80_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
-
-                <div className="relative z-10 flex items-center justify-between gap-4 h-full">
-                  <div className="flex flex-col justify-between h-full py-1">
-                    <div>
-                      <span className="text-[11px] font-black uppercase tracking-widest text-emerald-300/80 mb-2 block">
-                        QS RANKINGS
-                      </span>
-                      <h3 className="text-2xl sm:text-3xl font-black uppercase text-white tracking-tight leading-tight mb-2 drop-shadow-sm">
-                        QS SUSTAIN<br />ABILITY
-                      </h3>
-                      <p className="text-xs text-emerald-100/70 line-clamp-2 max-w-[170px] mb-4">
-                        Environmental, social & governance impact metrics
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/10 text-white border border-white/20 backdrop-blur-md group-hover:bg-white group-hover:text-gray-900 transition-all duration-300 w-fit shadow-xs"
-                    >
-                      <span>Explore</span>
-                      <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                  </div>
-
-                  <QSSustainabilityArtwork />
-                </div>
-              </motion.div>
-
-              {/* Box 3: THE Impact Rankings */}
-              <motion.div
-                whileHover={{ y: -6, scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-                transition={{ duration: 0.25 }}
-                onClick={() => navigate('/ranking-data/site/faq/the-impact-rankings')}
-                className="group relative rounded-3xl p-6 sm:p-7 overflow-hidden cursor-pointer shadow-xl hover:shadow-2xl hover:shadow-slate-900/40 border border-slate-600/40 hover:border-amber-400/80 transition-all bg-gradient-to-br from-[#162325] via-[#111c1e] to-[#0a1213]"
-              >
-                <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
-
-                <div className="relative z-10 flex items-center justify-between gap-4 h-full">
-                  <div className="flex flex-col justify-between h-full py-1">
-                    <div>
-                      <span className="text-[11px] font-black uppercase tracking-widest text-cyan-300/80 mb-2 block">
-                        TIMES HIGHER EDUCATION
-                      </span>
-                      <h3 className="text-2xl sm:text-3xl font-black uppercase text-white tracking-tight leading-tight mb-2 drop-shadow-sm">
-                        THE IMPACT<br />RANKINGS
-                      </h3>
-                      <p className="text-xs text-slate-200/70 line-clamp-2 max-w-[170px] mb-4">
-                        17 UN Sustainable Development Goals survey & evidence
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/10 text-white border border-white/20 backdrop-blur-md group-hover:bg-white group-hover:text-gray-900 transition-all duration-300 w-fit shadow-xs"
-                    >
-                      <span>Explore</span>
-                      <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                  </div>
-
-                  <THEImpactArtwork />
-                </div>
-              </motion.div>
+                  </motion.div>
+                );
+              })}
             </div>
           </div>
 

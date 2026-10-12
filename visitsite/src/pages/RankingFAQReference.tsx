@@ -1,18 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRankingData } from '../contexts/RankingDataContext';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeftIcon,
   ExternalLinkIcon,
   FileTextIcon,
   CheckCircle2Icon,
   SearchIcon,
-  ChevronDownIcon,
-  SendIcon,
-  XIcon,
-  Building2Icon,
-  CalendarIcon
+  ChevronDownIcon
 } from 'lucide-react';
 
 export const SDG_INFO = [
@@ -172,11 +167,11 @@ export const RANKINGS_CONFIG: Record<string, RankingConfig> = {
   'green-metrics': {
     slug: 'green-metrics',
     name: 'Green Metrics',
-    shortName: 'UI GreenMetric',
+    shortName: 'GreenMetric',
     eyebrow: 'WORLD UNIVERSITY RANKINGS',
-    badge: 'UI GREENMETRIC 2026',
-    description: 'UI GreenMetric World University Rankings measures university commitment to environmental sustainability across Setting & Infrastructure, Energy & Climate, Waste, Water, Transportation, and Education.',
-    surveyName: 'UI GreenMetric Sustainability',
+    badge: 'GREENMETRIC 2026',
+    description: 'GreenMetric World University Rankings measures university commitment to environmental sustainability across Setting & Infrastructure, Energy & Climate, Waste, Water, Transportation, and Education.',
+    surveyName: 'GreenMetric Sustainability',
     gradient: 'from-teal-600 via-emerald-600 to-cyan-700',
     headerBg: '#0f766e',
     accentColor: '#10b981',
@@ -213,39 +208,96 @@ export const RANKINGS_CONFIG: Record<string, RankingConfig> = {
 export function RankingFAQReference() {
   const navigate = useNavigate();
   const { rankingSlug } = useParams<{ rankingSlug?: string }>();
-  const { rankingData, viewFile, previewFile } = useRankingData();
+  const { rankingFAQs, rankingBoxes, sdgGoals, viewFile, previewFile } = useRankingData();
+
+  // Active dynamic SDG Goals from database (with fallback to SDG_INFO)
+  const activeSDGGoals = useMemo(() => {
+    if (sdgGoals && sdgGoals.length > 0) {
+      const activeOnly = sdgGoals.filter(g => g.is_active !== 0 && g.is_active !== false);
+      return activeOnly.map(g => {
+        const fallback = SDG_INFO.find(info => info.number === g.sdg_number);
+        return {
+          number: g.sdg_number,
+          title: g.title,
+          label: `${g.title} (SDG ${g.sdg_number})`,
+          color: fallback?.color || 'from-teal-600 to-teal-800',
+          solidColor: g.color || fallback?.solidColor || '#0f766e',
+          imageUrl: fallback?.imageUrl || ''
+        };
+      });
+    }
+    return SDG_INFO;
+  }, [sdgGoals]);
 
   // Normalize selected ranking slug
   const activeSlug = useMemo(() => {
-    if (rankingSlug && RANKINGS_CONFIG[rankingSlug]) {
+    if (rankingSlug) {
+      if (rankingBoxes.some(b => b.ranking_slug === rankingSlug)) {
+        return rankingSlug;
+      }
+      if (RANKINGS_CONFIG[rankingSlug]) {
+        return rankingSlug;
+      }
+      if (rankingSlug.includes('green')) return 'green-metrics';
+      if (rankingSlug.includes('qs')) return 'qs-sustainability';
+      if (rankingSlug.includes('the') || rankingSlug.includes('impact')) return 'the-impact-rankings';
       return rankingSlug;
     }
-    // Default to the-impact-rankings or match if fuzzy
-    if (rankingSlug?.includes('green')) return 'green-metrics';
-    if (rankingSlug?.includes('qs')) return 'qs-sustainability';
     return 'the-impact-rankings';
-  }, [rankingSlug]);
+  }, [rankingSlug, rankingBoxes]);
 
-  const activeRanking = RANKINGS_CONFIG[activeSlug];
+  // Lookup custom box from database
+  const activeBox = useMemo(() => {
+    return rankingBoxes.find(b => b.ranking_slug === activeSlug);
+  }, [rankingBoxes, activeSlug]);
+
+  const currentConfig = useMemo(() => {
+    const fallback = RANKINGS_CONFIG[activeSlug] || RANKINGS_CONFIG['the-impact-rankings'];
+    return {
+      slug: activeSlug,
+      name: activeBox?.ranking_name || fallback?.name || activeSlug,
+      shortName: activeBox?.ranking_name || fallback?.shortName || activeSlug,
+      eyebrow: activeBox?.page_eyebrow || fallback?.eyebrow || 'WORLD UNIVERSITY RANKINGS',
+      badge: activeBox?.tag_label || fallback?.badge || 'RANKINGS',
+      pageTitle: activeBox?.page_title || 'SUSTAINABLE DEVELOPMENT GOALS',
+      description: activeBox?.intro_description || fallback?.description,
+      submissionNote: activeBox?.submission_note,
+      surveyName: activeBox?.survey_name || fallback?.surveyName || 'Sustainability',
+      headerBg: activeBox?.table_header_bg || fallback?.headerBg || '#b6862c',
+      accentColor: activeBox?.accent_color || fallback?.accentColor || '#f59e0b',
+      icon: activeBox?.icon || fallback?.icon || '🏆'
+    };
+  }, [activeBox, activeSlug]);
+
+  const switcherTabs = useMemo(() => {
+    if (rankingBoxes && rankingBoxes.length > 0) {
+      return rankingBoxes.filter(b => b.is_active !== false).map(b => ({
+        slug: b.ranking_slug,
+        name: b.ranking_name,
+        icon: b.icon || '🏆'
+      }));
+    }
+    return Object.values(RANKINGS_CONFIG).map(c => ({
+      slug: c.slug,
+      name: c.name,
+      icon: c.icon
+    }));
+  }, [rankingBoxes]);
 
   // Filter state
   const [selectedSDG, setSelectedSDG] = useState<number | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedYear, setSelectedYear] = useState<string>('all');
-  const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [submitForm, setSubmitForm] = useState({
-    sdgNumber: '1',
-    evidenceLink: '',
-    description: '',
-    contributorEmail: '',
-    submitted: false
-  });
 
-  // Extract all data for active ranking
+  // Extract all data for active ranking from dedicated ranking_faqs table
   const rankingItems = useMemo(() => {
-    return rankingData.filter(item => {
+    const list = rankingFAQs || [];
+    return list.filter(item => {
       if (!item.isVisible) return false;
-      const rName = item.rankingName.toLowerCase();
+      if (item.rankingSlug && item.rankingSlug === activeSlug) {
+        return true;
+      }
+      const rName = (item.rankingName || '').toLowerCase();
       if (activeSlug === 'green-metrics') {
         return rName.includes('green') || rName.includes('ui');
       }
@@ -255,9 +307,12 @@ export function RankingFAQReference() {
       if (activeSlug === 'the-impact-rankings') {
         return rName.includes('the') || rName.includes('impact');
       }
+      if (activeBox) {
+        return rName.includes(activeBox.ranking_name.toLowerCase()) || activeBox.ranking_name.toLowerCase().includes(rName);
+      }
       return false;
     });
-  }, [rankingData, activeSlug]);
+  }, [rankingFAQs, activeSlug, activeBox]);
 
   // Available years in dataset
   const availableYears = useMemo(() => {
@@ -268,15 +323,12 @@ export function RankingFAQReference() {
   // Filtered rows for the FAQ table
   const displayedRows = useMemo(() => {
     return rankingItems.filter(item => {
-      // SDG filter
       if (selectedSDG !== 'all' && item.sdgNumber !== selectedSDG) {
         return false;
       }
-      // Year filter
       if (selectedYear !== 'all' && item.year !== selectedYear) {
         return false;
       }
-      // Search query filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesQuestion = item.question?.toLowerCase().includes(query);
@@ -309,6 +361,7 @@ export function RankingFAQReference() {
         criteriaName: first.criteriaName,
         question: first.question,
         year: first.year,
+        answer: first.answer || 'Yes',
         items
       };
     });
@@ -335,21 +388,6 @@ export function RankingFAQReference() {
     navigate(`/ranking-data/site/faq/${slug}`);
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitForm(prev => ({ ...prev, submitted: true }));
-    setTimeout(() => {
-      setShowSubmitModal(false);
-      setSubmitForm({
-        sdgNumber: '1',
-        evidenceLink: '',
-        description: '',
-        contributorEmail: '',
-        submitted: false
-      });
-    }, 2000);
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50/40 via-white to-orange-50/30 text-gray-900 pb-24">
       {/* Top Banner / Navigation */}
@@ -365,7 +403,7 @@ export function RankingFAQReference() {
 
           {/* Ranking Switcher Pills */}
           <div className="flex items-center gap-2 bg-gray-100/90 p-1 rounded-2xl border border-gray-200">
-            {Object.values(RANKINGS_CONFIG).map(config => {
+            {switcherTabs.map(config => {
               const isActive = config.slug === activeSlug;
               return (
                 <button
@@ -386,105 +424,32 @@ export function RankingFAQReference() {
         </div>
       </header>
 
-      {/* Hero Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-6">
-        <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 sm:p-12 relative overflow-hidden">
-          {/* Subtle decorative glow */}
-          <div
-            className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl opacity-15 pointer-events-none"
-            style={{ backgroundColor: activeRanking.accentColor }}
-          />
-
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+      {/* Main Filter Section - Directly Dropdown, Search, and Reporting Year */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-3">
+        {/* Title */}
+        <div className="mb-5">
+          <div className="flex items-center gap-2 mb-1">
             <span
-              className="px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-white shadow-xs"
-              style={{ backgroundColor: activeRanking.headerBg }}
+              className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider text-white shadow-2xs"
+              style={{ backgroundColor: currentConfig.headerBg }}
             >
-              {activeRanking.eyebrow}
+              {currentConfig.eyebrow || 'WORLD UNIVERSITY RANKINGS'}
             </span>
-
-            <div className="flex items-center gap-3 text-xs text-gray-500 font-medium">
-              <span className="flex items-center gap-1">
-                <Building2Icon className="w-3.5 h-3.5 text-gray-400" />
-                Institutional Data Repository
-              </span>
-              <span>•</span>
-              <span className="flex items-center gap-1">
-                <CalendarIcon className="w-3.5 h-3.5 text-gray-400" />
-                Annual Survey Audited
-              </span>
-            </div>
+            <span className="text-xs font-bold text-gray-500">
+              • {currentConfig.name}
+            </span>
           </div>
-
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-gray-900 tracking-tight mb-4">
-            SUSTAINABLE DEVELOPMENT GOALS
+          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight uppercase">
+            {currentConfig.pageTitle || 'SUSTAINABLE DEVELOPMENT GOALS'}
           </h1>
-
-          <div className="prose prose-amber max-w-4xl text-gray-700 text-base sm:text-lg leading-relaxed mb-6">
-            <p>
-              The United Nations' 17 <strong className="text-gray-900">Sustainable Development Goals (SDGs)</strong> are a call for action by all countries - developed and developing - in a global partnership. They are intended to provide a shared blueprint for peace and prosperity for people and the planet, now and into the future. Use the filter to see the evidence provided to <strong className="text-gray-900">{activeRanking.name}</strong> for the SDG's on their <strong className="text-gray-900">{activeRanking.surveyName}</strong> survey.
-            </p>
-            <p className="text-sm sm:text-base text-gray-600 mt-2">
-              If you would like to submit a link containing evidence supporting an SDG please{' '}
-              <button
-                onClick={() => setShowSubmitModal(true)}
-                className="font-bold underline hover:text-amber-700 cursor-pointer inline-flex items-center gap-1 text-amber-600 transition-colors"
-              >
-                click here
-              </button>
-              . Submitted data will be reviewed by the Sustainability & Rankings Office for next year's submission.
-            </p>
-          </div>
-
-          {/* Quick Metrics Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 border-t border-gray-100">
-            <div className="bg-amber-50/60 rounded-2xl p-4 border border-amber-100/60">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                Total Questions
-              </div>
-              <div className="text-2xl sm:text-3xl font-black text-gray-900">
-                {rankingItems.length}
-              </div>
-            </div>
-
-            <div className="bg-emerald-50/60 rounded-2xl p-4 border border-emerald-100/60">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                SDGs Covered
-              </div>
-              <div className="text-2xl sm:text-3xl font-black text-emerald-800">
-                {Object.keys(countPerSDG).length} / 17
-              </div>
-            </div>
-
-            <div className="bg-blue-50/60 rounded-2xl p-4 border border-blue-100/60">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                Verified Evidences
-              </div>
-              <div className="text-2xl sm:text-3xl font-black text-blue-900">
-                {rankingItems.filter(i => i.fileName).length}
-              </div>
-            </div>
-
-            <div className="bg-orange-50/60 rounded-2xl p-4 border border-orange-100/60">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                Active Year(s)
-              </div>
-              <div className="text-xl sm:text-2xl font-black text-orange-900">
-                {availableYears.join(', ') || '2026'}
-              </div>
-            </div>
-          </div>
         </div>
-      </div>
 
-      {/* Main Filter Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 sm:p-8 space-y-6">
-          {/* Top Filter Controls */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-end">
-            {/* The Dropdown filter exactly matching reference website */}
-            <div className="md:col-span-5 space-y-2">
-              <label htmlFor="sdg-dropdown-filter" className="block text-sm font-bold text-gray-900">
+        {/* Filter Controls Card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 mb-2">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+            {/* 1. Sustainable Development Goals: Dropdown */}
+            <div className="md:col-span-5 space-y-1.5">
+              <label htmlFor="sdg-dropdown-filter" className="block text-xs sm:text-sm font-bold text-gray-800">
                 Sustainable Development Goals:
               </label>
               <div className="relative">
@@ -495,14 +460,14 @@ export function RankingFAQReference() {
                     const val = e.target.value;
                     setSelectedSDG(val === 'all' ? 'all' : Number(val));
                   }}
-                  className="w-full appearance-none bg-white border-2 border-gray-300 hover:border-amber-500 focus:border-amber-600 focus:ring-4 focus:ring-amber-100 rounded-xl px-4 py-3 text-sm font-semibold text-gray-900 transition-all pr-10 cursor-pointer shadow-xs"
+                  className="w-full appearance-none bg-white border-2 border-gray-300 hover:border-amber-500 focus:border-amber-600 focus:ring-4 focus:ring-amber-100 rounded-xl px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-gray-900 transition-all pr-10 cursor-pointer shadow-xs"
                 >
-                  <option value="all">All Sustainable Development Goals (SDGs 1-17)</option>
-                  {SDG_INFO.map(sdg => {
+                  <option value="all">All Sustainable Development Goals</option>
+                  {activeSDGGoals.map(sdg => {
                     const count = countPerSDG[sdg.number] || 0;
                     return (
                       <option key={sdg.number} value={sdg.number}>
-                        {sdg.label} {count > 0 ? `(${count} records)` : ''}
+                        {sdg.label || `${sdg.title} (SDG ${sdg.number})`} {count > 0 ? `(${count} records)` : ''}
                       </option>
                     );
                   })}
@@ -511,9 +476,9 @@ export function RankingFAQReference() {
               </div>
             </div>
 
-            {/* Keyword Search */}
-            <div className="md:col-span-4 space-y-2">
-              <label className="block text-sm font-bold text-gray-900">
+            {/* 2. Search Questions or Criteria */}
+            <div className="md:col-span-4 space-y-1.5">
+              <label className="block text-xs sm:text-sm font-bold text-gray-800">
                 Search Questions or Criteria:
               </label>
               <div className="relative">
@@ -523,7 +488,7 @@ export function RankingFAQReference() {
                   placeholder="e.g. anti-poverty, energy, waste, 1.3..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full bg-white border-2 border-gray-300 hover:border-amber-500 focus:border-amber-600 focus:ring-4 focus:ring-amber-100 rounded-xl pl-10 pr-4 py-3 text-sm font-medium text-gray-900 transition-all shadow-xs"
+                  className="w-full bg-white border-2 border-gray-300 hover:border-amber-500 focus:border-amber-600 focus:ring-4 focus:ring-amber-100 rounded-xl pl-10 pr-8 py-2.5 sm:py-3 text-xs sm:text-sm font-medium text-gray-900 transition-all shadow-xs"
                 />
                 {searchQuery && (
                   <button
@@ -536,81 +501,26 @@ export function RankingFAQReference() {
               </div>
             </div>
 
-            {/* Year Selector */}
-            <div className="md:col-span-3 space-y-2">
-              <label className="block text-sm font-bold text-gray-900">
+            {/* 3. Reporting Year */}
+            <div className="md:col-span-3 space-y-1.5">
+              <label className="block text-xs sm:text-sm font-bold text-gray-800">
                 Reporting Year:
               </label>
-              <select
-                value={selectedYear}
-                onChange={e => setSelectedYear(e.target.value)}
-                className="w-full appearance-none bg-white border-2 border-gray-300 hover:border-amber-500 focus:border-amber-600 focus:ring-4 focus:ring-amber-100 rounded-xl px-4 py-3 text-sm font-semibold text-gray-900 transition-all cursor-pointer shadow-xs"
-              >
-                <option value="all">All Reporting Years</option>
-                {availableYears.map(yr => (
-                  <option key={yr} value={yr}>
-                    Year {yr}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Quick SDG Thumbnails / Pills strip */}
-          <div className="pt-4 border-t border-gray-100">
-            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5 flex items-center justify-between">
-              <span>Quick Select Goal:</span>
-              {selectedSDG !== 'all' && (
-                <button
-                  onClick={() => setSelectedSDG('all')}
-                  className="text-amber-600 hover:text-amber-800 text-xs font-semibold underline"
+              <div className="relative">
+                <select
+                  value={selectedYear}
+                  onChange={e => setSelectedYear(e.target.value)}
+                  className="w-full appearance-none bg-white border-2 border-gray-300 hover:border-amber-500 focus:border-amber-600 focus:ring-4 focus:ring-amber-100 rounded-xl px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-gray-900 transition-all pr-10 cursor-pointer shadow-xs"
                 >
-                  Show All 17 Goals
-                </button>
-              )}
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
-              <button
-                onClick={() => setSelectedSDG('all')}
-                className={`flex-shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${
-                  selectedSDG === 'all'
-                    ? 'bg-gray-900 text-white border-gray-900 shadow-xs'
-                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-200'
-                }`}
-              >
-                All SDGs ({rankingItems.length})
-              </button>
-              {SDG_INFO.map(sdg => {
-                const isSelected = selectedSDG === sdg.number;
-                const count = countPerSDG[sdg.number] || 0;
-                return (
-                  <button
-                    key={sdg.number}
-                    onClick={() => setSelectedSDG(sdg.number)}
-                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
-                      isSelected
-                        ? 'text-white shadow-md border-transparent scale-105'
-                        : 'bg-white text-gray-800 hover:bg-gray-50 border-gray-200'
-                    } ${count === 0 ? 'opacity-40' : ''}`}
-                    style={{
-                      backgroundColor: isSelected ? sdg.solidColor : undefined
-                    }}
-                  >
-                    <span
-                      className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: sdg.solidColor }}
-                    />
-                    <span>SDG {sdg.number}</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
+                  <option value="all">All Reporting Years</option>
+                  {availableYears.map(yr => (
+                    <option key={yr} value={yr}>
+                      Year {yr}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDownIcon className="w-5 h-5 text-gray-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
           </div>
         </div>
@@ -622,18 +532,18 @@ export function RankingFAQReference() {
           {/* Table Header Banner - Gold/Bronze like FIU or theme matching */}
           <div
             className="px-6 py-4.5 flex flex-wrap items-center justify-between gap-4 text-white shadow-xs"
-            style={{ backgroundColor: activeRanking.headerBg }}
+            style={{ backgroundColor: currentConfig.headerBg }}
           >
             <div className="flex items-center gap-3">
-              <span className="text-2xl">{activeRanking.icon}</span>
+              <span className="text-2xl">{currentConfig.icon}</span>
               <div>
                 <h2 className="text-lg sm:text-xl font-bold tracking-tight">
                   {selectedSDG === 'all'
                     ? `All SDG Criteria & Survey Evidence`
-                    : `SDG ${selectedSDG}: ${SDG_INFO.find(s => s.number === selectedSDG)?.title}`}
+                    : `SDG ${selectedSDG}: ${activeSDGGoals.find(s => s.number === selectedSDG)?.title || SDG_INFO.find(s => s.number === selectedSDG)?.title || ''}`}
                 </h2>
                 <p className="text-xs text-white/85">
-                  Showing {groupedQuestions.length} survey criteria question{groupedQuestions.length !== 1 ? 's' : ''} for {activeRanking.name}
+                  Showing {groupedQuestions.length} survey criteria question{groupedQuestions.length !== 1 ? 's' : ''} for {currentConfig.name}
                 </p>
               </div>
             </div>
@@ -651,7 +561,7 @@ export function RankingFAQReference() {
               <thead>
                 <tr
                   className="text-white text-xs sm:text-sm uppercase tracking-wider font-extrabold"
-                  style={{ backgroundColor: activeRanking.headerBg }}
+                  style={{ backgroundColor: currentConfig.headerBg }}
                 >
                   <th className="py-3.5 px-6 border-r border-white/20 w-7/12">Question</th>
                   <th className="py-3.5 px-6 border-r border-white/20 text-center w-2/12">Answer</th>
@@ -669,7 +579,7 @@ export function RankingFAQReference() {
                         </h3>
                         <p className="text-sm text-gray-500">
                           {selectedSDG !== 'all'
-                            ? `No survey questions or evidence files are currently recorded for SDG ${selectedSDG} under ${activeRanking.name}.`
+                            ? `No survey questions or evidence files are currently recorded for SDG ${selectedSDG} under ${currentConfig.name}.`
                             : 'No records matched your search filters.'}
                         </p>
                         <button
@@ -688,7 +598,8 @@ export function RankingFAQReference() {
                 ) : (
                   groupedQuestions.map((group, index) => {
                     const isEven = index % 2 === 0;
-                    const sdgMeta = SDG_INFO.find(s => s.number === group.sdgNumber);
+                    const sdgMeta = activeSDGGoals.find(s => s.number === group.sdgNumber) || SDG_INFO.find(s => s.number === group.sdgNumber);
+                    const isNo = (group.answer || '').trim().toLowerCase() === 'no';
 
                     return (
                       <tr
@@ -731,33 +642,92 @@ export function RankingFAQReference() {
 
                         {/* Answer Column */}
                         <td className="py-5 px-6 align-middle text-center">
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-2xs">
-                            <CheckCircle2Icon className="w-3.5 h-3.5 text-emerald-600" />
-                            Yes
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold border shadow-2xs ${
+                            isNo
+                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                          }`}>
+                            <CheckCircle2Icon className={`w-3.5 h-3.5 ${isNo ? 'text-rose-500' : 'text-emerald-600'}`} />
+                            {group.answer || 'Yes'}
                           </span>
                         </td>
 
                         {/* Evidence Column */}
                         <td className="py-5 px-6 align-middle text-center">
                           <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-2">
-                            {group.items.map((item, linkIdx) => {
-                              const label =
-                                group.items.length > 1
-                                  ? `[Link ${linkIdx + 1}]`
-                                  : `[Link 1]`;
+                            {(() => {
+                              // Collect all links across group items (both multi-link array and legacy single fields)
+                              const links: Array<{
+                                id: string;
+                                label: string;
+                                url: string;
+                                isUrl: boolean;
+                                fileName?: string;
+                                fileSize?: string;
+                              }> = [];
 
-                              return (
+                              group.items.forEach((item, itemIdx) => {
+                                if (item.evidenceLinks && Array.isArray(item.evidenceLinks) && item.evidenceLinks.length > 0) {
+                                  item.evidenceLinks.forEach((lnk, linkIdx) => {
+                                    if (lnk.url || lnk.fileName) {
+                                      const fallbackLabel = item.evidenceLinks!.length > 1
+                                        ? `[Link ${linkIdx + 1}]`
+                                        : (item.evidenceLabel || `[Link ${linkIdx + 1}]`);
+                                      const label = (lnk.label && lnk.label.trim()) ? lnk.label.trim() : fallbackLabel;
+                                      const isUrl = lnk.type === 'url' || (Boolean(lnk.url) && !lnk.url.startsWith('/uploads') && !lnk.fileName);
+                                      links.push({
+                                        id: `${item.id}-link-${linkIdx}`,
+                                        label,
+                                        url: lnk.url,
+                                        isUrl,
+                                        fileName: lnk.fileName,
+                                        fileSize: item.fileSize
+                                      });
+                                    }
+                                  });
+                                } else {
+                                  // Legacy single field fallback
+                                  const fallbackLabel = group.items.length > 1 ? `[Link ${itemIdx + 1}]` : `[Link 1]`;
+                                  const label = item.evidenceLabel?.trim() ? item.evidenceLabel : fallbackLabel;
+                                  const isUrl = Boolean(item.externalUrl && item.externalUrl.trim());
+                                  const url = isUrl ? item.externalUrl : item.fileUrl;
+                                  if (url || item.fileName) {
+                                    links.push({
+                                      id: `${item.id}-legacy`,
+                                      label,
+                                      url: url || '',
+                                      isUrl,
+                                      fileName: item.fileName,
+                                      fileSize: item.fileSize
+                                    });
+                                  }
+                                }
+                              });
+
+                              if (links.length === 0) {
+                                return (
+                                  <span className="text-xs text-gray-400 italic">No evidence link</span>
+                                );
+                              }
+
+                              return links.map(link => (
                                 <button
-                                  key={item.id}
-                                  onClick={() => handleEvidenceClick(item.fileUrl, item.fileName)}
-                                  title={`${item.fileName} (${item.fileSize || 'PDF'})`}
-                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold text-amber-700 hover:text-white bg-amber-50 hover:bg-amber-600 border border-amber-300 hover:border-amber-600 transition-all shadow-2xs group"
+                                  key={link.id}
+                                  onClick={() => {
+                                    if (link.isUrl && link.url) {
+                                      window.open(link.url, '_blank', 'noopener,noreferrer');
+                                    } else {
+                                      handleEvidenceClick(link.url, link.fileName);
+                                    }
+                                  }}
+                                  title={link.isUrl ? link.url : `${link.fileName || 'Evidence document'} (${link.fileSize || 'PDF'})`}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold text-amber-700 hover:text-white bg-amber-50 hover:bg-amber-600 border border-amber-300 hover:border-amber-600 transition-all shadow-2xs group"
                                 >
-                                  <span>{label}</span>
+                                  <span>{link.label}</span>
                                   <ExternalLinkIcon className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                                 </button>
-                              );
-                            })}
+                              ));
+                            })()}
                           </div>
                         </td>
                       </tr>
@@ -771,7 +741,7 @@ export function RankingFAQReference() {
           {/* Table Footer */}
           <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex flex-wrap items-center justify-between text-xs text-gray-500 gap-3">
             <div>
-              Showing {groupedQuestions.length} criteria questions across {activeRanking.name}
+              Showing {groupedQuestions.length} criteria questions across {currentConfig.name}
             </div>
             <div className="flex items-center gap-4">
               <span>Verified Institutional Submission</span>
@@ -787,138 +757,6 @@ export function RankingFAQReference() {
         </div>
       </div>
 
-      {/* Submit Evidence Modal */}
-      <AnimatePresence>
-        {showSubmitModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-gray-100 relative"
-            >
-              <button
-                onClick={() => setShowSubmitModal(false)}
-                className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center transition-colors"
-              >
-                <XIcon className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 bg-amber-100 text-amber-700 rounded-2xl">
-                  <SendIcon className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">
-                    Submit Evidence for SDGs
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    Contribute institutional documentation for ranking review
-                  </p>
-                </div>
-              </div>
-
-              {submitForm.submitted ? (
-                <div className="py-8 text-center space-y-3">
-                  <CheckCircle2Icon className="w-12 h-12 text-emerald-600 mx-auto" />
-                  <h4 className="text-lg font-bold text-gray-900">
-                    Thank You for Your Submission!
-                  </h4>
-                  <p className="text-sm text-gray-600">
-                    Your evidence link has been submitted to the Sustainability & Ranking Office. It will be verified for next year's institutional submission.
-                  </p>
-                </div>
-              ) : (
-                <form onSubmit={handleFormSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                      Target SDG Goal:
-                    </label>
-                    <select
-                      value={submitForm.sdgNumber}
-                      onChange={e =>
-                        setSubmitForm(prev => ({ ...prev, sdgNumber: e.target.value }))
-                      }
-                      className="w-full border-2 border-gray-200 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                    >
-                      {SDG_INFO.map(s => (
-                        <option key={s.number} value={s.number}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                      Evidence Link or Document URL:
-                    </label>
-                    <input
-                      type="url"
-                      required
-                      placeholder="https://your-university.edu/evidence.pdf"
-                      value={submitForm.evidenceLink}
-                      onChange={e =>
-                        setSubmitForm(prev => ({ ...prev, evidenceLink: e.target.value }))
-                      }
-                      className="w-full border-2 border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                      Description / Relevance:
-                    </label>
-                    <textarea
-                      rows={3}
-                      placeholder="Explain how this document supports the selected SDG criteria..."
-                      value={submitForm.description}
-                      onChange={e =>
-                        setSubmitForm(prev => ({ ...prev, description: e.target.value }))
-                      }
-                      className="w-full border-2 border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                      Your Email (Optional):
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="staff@university.edu"
-                      value={submitForm.contributorEmail}
-                      onChange={e =>
-                        setSubmitForm(prev => ({
-                          ...prev,
-                          contributorEmail: e.target.value
-                        }))
-                      }
-                      className="w-full border-2 border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
-                    />
-                  </div>
-
-                  <div className="pt-2 flex justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowSubmitModal(false)}
-                      className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold rounded-xl transition-all shadow-md"
-                    >
-                      Submit Evidence
-                    </button>
-                  </div>
-                </form>
-              )}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

@@ -53,77 +53,87 @@ import { RankingSite } from './pages/RankingSite';
 import { RankingDataProvider } from './contexts/RankingDataContext';
 import { SDGConsolidatedView } from "./pages/SDGConsolidatedView";
 import { RankingFAQReference } from "./pages/RankingFAQReference";
+import { RankingFAQAdmin } from "./pages/RankingFAQAdmin";
+import { AuthProvider } from "./contexts/AuthContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { LoginPage } from "./pages/LoginPage";
 
 export function AppRouter() {
-  return <BrowserRouter>
-    <GovernanceProvider>
-      <EnvironmentProvider>
-        <ResearchProvider>
-          <InfrastructureProvider>
-            <AchievementProvider>
-              <ReportsProvider>
-                <SDGProvider>
-                  <RankingDataProvider>
-                    <Routes>
-                      <Route path="/" element={<App />} />
-                      <Route path="/governance" element={<GovernanceData />} />
-                      <Route path="/governance/green-office" element={<GreenOffice />} />
-                      <Route path="/governance/committees" element={<Committees />} />
-                      {/* <Route path="/whitepapers" element={<WhitepapersPage />} /> */}
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <GovernanceProvider>
+          <EnvironmentProvider>
+            <ResearchProvider>
+              <InfrastructureProvider>
+                <AchievementProvider>
+                  <ReportsProvider>
+                    <SDGProvider>
+                      <RankingDataProvider>
+                        <Routes>
+                          {/* Authentication Route */}
+                          <Route path="/login" element={<LoginPage />} />
 
-                      <Route path="/governance/student-council" element={<StudentGreenCouncil />} />
-                      <Route path="/governance/site" element={<GovernanceSite />} />
-                      <Route path="/environment" element={<EnvironmentData />} />
-                      <Route path="/environment/energy-climate" element={<EnergyClimate />} />
-                      <Route path="/environment/water" element={<WaterConservation />} />
-                      <Route path="/environment/transportation" element={<Transportation />} />
-                      <Route path="/environment/biodiversity" element={<Biodiversity />} />
-                      <Route path="/environment/waste-management" element={<WasteManagement />} />
-                      <Route path="/environment/site" element={<EnvironmentSite />} />
-                      <Route path="/research" element={<ResearchData />} />
-                      <Route path="/research/funding" element={<ResearchFunding />} />
-                      <Route path="/research/publications" element={<ResearchPublications />} />
-                      <Route path="/research/patents" element={<ResearchPatents />} />
-                      <Route path="/research/courses" element={<ResearchCourses />} />
-                      <Route path="/research/student-research" element={<ResearchStudentResearch />} />
-                      <Route path="/research/collaborations" element={<ResearchCollaborations />} />
-                      <Route path="/research/outreach" element={<ResearchOutreach />} />
-                      <Route path="/research/startups" element={<ResearchStartups />} />
-                      <Route path="/research/graduates" element={<ResearchGraduates />} />
-                      <Route path="/research/innovations" element={<ResearchInnovations />} />
-                      <Route path="/research/site" element={<ResearchSite />} />
-                      <Route path="/infrastructure" element={<InfrastructureData />} />
-                      <Route path="/infrastructure/green-spaces" element={<InfrastructureGreenSpaces />} />
-                      <Route path="/infrastructure/accessibility" element={<InfrastructureAccessibility />} />
-                      <Route path="/infrastructure/wellness" element={<InfrastructureWellness />} />
-                      <Route path="/infrastructure/smart-buildings" element={<InfrastructureSmartBuildings />} />
-                      <Route path="/infrastructure/budget" element={<InfrastructureBudget />} />
-                      <Route path="/infrastructure/planning" element={<InfrastructurePlanning />} />
-                      <Route path="/infrastructure/site" element={<InfrastructureSite />} />
-                      <Route path="/achievements" element={<AchievementData />} />
-                      <Route path="/achievements/site" element={<AchievementSite />} />
-                      <Route path="/reports" element={<ReportsData />} />
-                      <Route path="/reports/site" element={<ReportsSite />} />
-                      <Route path="/sdg" element={<SDGData />} />
-                      <Route path="/sdg/:goalNumber" element={<SDGDetailData />} />
-                      <Route path="/sdg/site" element={<SDGSite />} />
-                      <Route path="/ranking-data" element={<RankingData />} />
-                      <Route path="/ranking-data/site" element={<RankingSite />} />
-                      <Route path="/ranking-data/site/faq" element={<RankingFAQReference />} />
-                      <Route path="/ranking-data/site/faq/:rankingSlug" element={<RankingFAQReference />} />
-                      <Route path="/ranking-data/site/:sdgSlug" element={<RankingSite />} />
-                      <Route
-                          path="/sdg/consolidated/:goalNumber"
-                          element={<SDGConsolidatedView />}
-                        />
-                    </Routes>
-                  </RankingDataProvider>
-                </SDGProvider>
-              </ReportsProvider>
-            </AchievementProvider>
-          </InfrastructureProvider>
-        </ResearchProvider>
-      </EnvironmentProvider>
-    </GovernanceProvider>
-  </BrowserRouter>;
+                          {/* Protected Admin Dashboard & Management Routes */}
+                          <Route path="/" element={<ProtectedRoute><App /></ProtectedRoute>} />
+                          <Route path="/governance" element={<ProtectedRoute><GovernanceData /></ProtectedRoute>} />
+                          <Route path="/governance/green-office" element={<ProtectedRoute><GreenOffice /></ProtectedRoute>} />
+                          <Route path="/governance/committees" element={<ProtectedRoute><Committees /></ProtectedRoute>} />
+                          <Route path="/governance/student-council" element={<ProtectedRoute><StudentGreenCouncil /></ProtectedRoute>} />
+                          <Route path="/environment" element={<ProtectedRoute><EnvironmentData /></ProtectedRoute>} />
+                          <Route path="/environment/energy-climate" element={<ProtectedRoute><EnergyClimate /></ProtectedRoute>} />
+                          <Route path="/environment/water" element={<ProtectedRoute><WaterConservation /></ProtectedRoute>} />
+                          <Route path="/environment/transportation" element={<ProtectedRoute><Transportation /></ProtectedRoute>} />
+                          <Route path="/environment/biodiversity" element={<ProtectedRoute><Biodiversity /></ProtectedRoute>} />
+                          <Route path="/environment/waste-management" element={<ProtectedRoute><WasteManagement /></ProtectedRoute>} />
+                          <Route path="/research" element={<ProtectedRoute><ResearchData /></ProtectedRoute>} />
+                          <Route path="/research/funding" element={<ProtectedRoute><ResearchFunding /></ProtectedRoute>} />
+                          <Route path="/research/publications" element={<ProtectedRoute><ResearchPublications /></ProtectedRoute>} />
+                          <Route path="/research/patents" element={<ProtectedRoute><ResearchPatents /></ProtectedRoute>} />
+                          <Route path="/research/courses" element={<ProtectedRoute><ResearchCourses /></ProtectedRoute>} />
+                          <Route path="/research/student-research" element={<ProtectedRoute><ResearchStudentResearch /></ProtectedRoute>} />
+                          <Route path="/research/collaborations" element={<ProtectedRoute><ResearchCollaborations /></ProtectedRoute>} />
+                          <Route path="/research/outreach" element={<ProtectedRoute><ResearchOutreach /></ProtectedRoute>} />
+                          <Route path="/research/startups" element={<ProtectedRoute><ResearchStartups /></ProtectedRoute>} />
+                          <Route path="/research/graduates" element={<ProtectedRoute><ResearchGraduates /></ProtectedRoute>} />
+                          <Route path="/research/innovations" element={<ProtectedRoute><ResearchInnovations /></ProtectedRoute>} />
+                          <Route path="/infrastructure" element={<ProtectedRoute><InfrastructureData /></ProtectedRoute>} />
+                          <Route path="/infrastructure/green-spaces" element={<ProtectedRoute><InfrastructureGreenSpaces /></ProtectedRoute>} />
+                          <Route path="/infrastructure/accessibility" element={<ProtectedRoute><InfrastructureAccessibility /></ProtectedRoute>} />
+                          <Route path="/infrastructure/wellness" element={<ProtectedRoute><InfrastructureWellness /></ProtectedRoute>} />
+                          <Route path="/infrastructure/smart-buildings" element={<ProtectedRoute><InfrastructureSmartBuildings /></ProtectedRoute>} />
+                          <Route path="/infrastructure/budget" element={<ProtectedRoute><InfrastructureBudget /></ProtectedRoute>} />
+                          <Route path="/infrastructure/planning" element={<ProtectedRoute><InfrastructurePlanning /></ProtectedRoute>} />
+                          <Route path="/achievements" element={<ProtectedRoute><AchievementData /></ProtectedRoute>} />
+                          <Route path="/reports" element={<ProtectedRoute><ReportsData /></ProtectedRoute>} />
+                          <Route path="/sdg" element={<ProtectedRoute><SDGData /></ProtectedRoute>} />
+                          <Route path="/sdg/:goalNumber" element={<ProtectedRoute><SDGDetailData /></ProtectedRoute>} />
+                          <Route path="/sdg/consolidated/:goalNumber" element={<ProtectedRoute><SDGConsolidatedView /></ProtectedRoute>} />
+                          <Route path="/ranking-data" element={<ProtectedRoute><RankingData /></ProtectedRoute>} />
+                          <Route path="/faq" element={<ProtectedRoute><RankingFAQAdmin /></ProtectedRoute>} />
+
+                          {/* Public Sites & References */}
+                          <Route path="/governance/site" element={<GovernanceSite />} />
+                          <Route path="/environment/site" element={<EnvironmentSite />} />
+                          <Route path="/research/site" element={<ResearchSite />} />
+                          <Route path="/infrastructure/site" element={<InfrastructureSite />} />
+                          <Route path="/achievements/site" element={<AchievementSite />} />
+                          <Route path="/reports/site" element={<ReportsSite />} />
+                          <Route path="/sdg/site" element={<SDGSite />} />
+                          <Route path="/ranking-data/site" element={<RankingSite />} />
+                          <Route path="/ranking-data/site/faq" element={<RankingFAQReference />} />
+                          <Route path="/ranking-data/site/faq/:rankingSlug" element={<RankingFAQReference />} />
+                          <Route path="/ranking-data/site/:sdgSlug" element={<RankingSite />} />
+                        </Routes>
+                      </RankingDataProvider>
+                    </SDGProvider>
+                  </ReportsProvider>
+                </AchievementProvider>
+              </InfrastructureProvider>
+            </ResearchProvider>
+          </EnvironmentProvider>
+        </GovernanceProvider>
+      </AuthProvider>
+    </BrowserRouter>
+  );
 }

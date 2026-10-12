@@ -7,19 +7,13 @@ import fs from 'fs';
 
 const router = express.Router();
 
-// ES module path helpers
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// UPLOAD PATH - store ranking PDFs in the frontend uploads folder
-// (project root)/uploads/ranking-data
+// UPLOAD PATH - store ranking PDFs in frontend uploads folder
 const uploadFolder = path.join(__dirname, "../../../uploads/ranking-data");
 fs.mkdirSync(uploadFolder, { recursive: true });
 
-console.log('📁 Upload folder path:', uploadFolder);
-console.log('📁 Upload folder exists:', fs.existsSync(uploadFolder));
-
-// Multer storage for ranking PDFs
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadFolder);
@@ -27,7 +21,6 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const timestamp = Date.now();
     const safeName = `${timestamp}-${file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
-    console.log('📄 Saving file as:', safeName);
     cb(null, safeName);
   }
 });
@@ -46,80 +39,272 @@ const upload = multer({
   }
 });
 
-// Using shared promise-based pool from server/db.js (imported above)
-
-// REMOVE the static file serving from here since it's already in your main server
-// Your main server already has: app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// GET /api/ranking-data - List all endpoints
+// GET /api/ranking-data - API Documentation
 router.get("/", (req, res) => {
   res.json({
-    message: "Ranking Data API is working",
-    baseUrl: `${req.protocol}://${req.get('host')}${req.baseUrl}`,
-    staticFilesBase: `${req.protocol}://${req.get('host')}/uploads`,
+    message: "Ranking Data & FAQ Boxes API is operational",
     endpoints: {
-      "POST /add-ranking-data": "Upload ranking data with PDF file",
-      "GET /rankingssite": "Get all ranking data",
-      "PUT /update-ranking-site/:id": "Update ranking data",
-      "DELETE /delete-ranking-site/:id": "Delete ranking data",
-      "GET /download/:filename": "Download PDF file",
-      "GET /view/:filename": "View PDF file in browser",
-      "GET /test-upload-dir": "Test upload directory"
+      "GET /boxes": "Get all dynamic ranking boxes and page configurations",
+      "GET /boxes/:idOrSlug": "Get a specific box configuration",
+      "POST /boxes": "Create a new ranking framework box",
+      "PUT /boxes/:id": "Update ranking framework box and its reference page",
+      "DELETE /boxes/:id": "Delete ranking framework box",
+      "POST /add-ranking-data": "Add ranking FAQ criteria/question (with PDF or external link)",
+      "GET /rankingssite": "Get all criteria FAQ questions and evidence",
+      "PUT /update-ranking-site/:id": "Update criteria FAQ question",
+      "DELETE /delete-ranking-site/:id": "Delete criteria question",
+      "PATCH /toggle-visibility/:id": "Toggle question visibility",
+      "GET /download/:filename": "Download PDF",
+      "GET /view/:filename": "View PDF"
     }
   });
 });
 
-// POST /add-ranking-data
+// ==========================================
+// DYNAMIC RANKING FAQ BOXES & PAGE CONFIGS
+// ==========================================
+
+// GET /boxes - Fetch all ranking boxes
+router.get('/boxes', async (req, res) => {
+  try {
+    const showAll = req.query.all === '1' || req.query.all === 'true' || req.query.admin === 'true';
+    const sql = showAll
+      ? 'SELECT * FROM ranking_faq_boxes ORDER BY display_order ASC, id ASC'
+      : 'SELECT * FROM ranking_faq_boxes WHERE is_active = 1 ORDER BY display_order ASC, id ASC';
+    const [results] = await pool.query(sql);
+    res.json(results);
+  } catch (err) {
+    console.error('❌ Error fetching ranking boxes:', err);
+    res.status(500).json({ message: 'Error fetching ranking boxes: ' + err.message });
+  }
+});
+
+// GET /boxes/:idOrSlug - Fetch single box by ID or Slug
+router.get('/boxes/:idOrSlug', async (req, res) => {
+  try {
+    const { idOrSlug } = req.params;
+    const isNumeric = /^\d+$/.test(idOrSlug);
+    const sql = isNumeric
+      ? 'SELECT * FROM ranking_faq_boxes WHERE id = ?'
+      : 'SELECT * FROM ranking_faq_boxes WHERE ranking_slug = ?';
+    const [results] = await pool.query(sql, [idOrSlug]);
+    if (!results || results.length === 0) {
+      return res.status(404).json({ message: 'Ranking box not found' });
+    }
+    res.json(results[0]);
+  } catch (err) {
+    console.error('❌ Error fetching ranking box:', err);
+    res.status(500).json({ message: 'Error fetching ranking box' });
+  }
+});
+
+// POST /boxes - Create new ranking box & page template
+router.post('/boxes', async (req, res) => {
+  try {
+    const {
+      ranking_slug,
+      ranking_name,
+      tag_label,
+      box_title,
+      description,
+      button_text,
+      page_title,
+      page_eyebrow,
+      survey_name,
+      intro_description,
+      submission_note,
+      table_header_bg,
+      accent_color,
+      icon,
+      display_order,
+      is_active
+    } = req.body;
+
+    if (!ranking_name && !box_title) {
+      return res.status(400).json({ message: 'Ranking name or Box title is required' });
+    }
+
+    const titleVal = box_title || ranking_name;
+    const nameVal = ranking_name || box_title;
+    const slug = (ranking_slug || nameVal)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+
+    const sql = `
+      INSERT INTO ranking_faq_boxes 
+      (ranking_slug, ranking_name, tag_label, box_title, description, button_text, page_title, page_eyebrow, survey_name, intro_description, submission_note, table_header_bg, accent_color, icon, display_order, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const params = [
+      slug,
+      nameVal,
+      tag_label || nameVal.toUpperCase(),
+      titleVal,
+      description || '',
+      button_text || 'Explore',
+      page_title || 'SUSTAINABLE DEVELOPMENT GOALS',
+      page_eyebrow || 'WORLD UNIVERSITY RANKINGS',
+      survey_name || nameVal,
+      intro_description || '',
+      submission_note || '',
+      table_header_bg || '#b6862c',
+      accent_color || '#10b981',
+      icon || '🏆',
+      display_order ? parseInt(display_order) : 0,
+      is_active !== undefined ? (is_active ? 1 : 0) : 1
+    ];
+
+    const [result] = await pool.query(sql, params);
+    res.status(201).json({
+      success: true,
+      message: '✅ Ranking box template created successfully',
+      id: result.insertId,
+      slug
+    });
+  } catch (err) {
+    console.error('❌ Error creating ranking box:', err);
+    res.status(500).json({ message: 'Error creating ranking box: ' + err.message });
+  }
+});
+
+// PUT /boxes/:id - Update ranking box and reference page settings
+router.put('/boxes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      ranking_slug,
+      ranking_name,
+      tag_label,
+      box_title,
+      description,
+      button_text,
+      page_title,
+      page_eyebrow,
+      survey_name,
+      intro_description,
+      submission_note,
+      table_header_bg,
+      accent_color,
+      icon,
+      display_order,
+      is_active
+    } = req.body;
+
+    const sql = `
+      UPDATE ranking_faq_boxes SET
+        ranking_slug = COALESCE(?, ranking_slug),
+        ranking_name = COALESCE(?, ranking_name),
+        tag_label = COALESCE(?, tag_label),
+        box_title = COALESCE(?, box_title),
+        description = COALESCE(?, description),
+        button_text = COALESCE(?, button_text),
+        page_title = COALESCE(?, page_title),
+        page_eyebrow = COALESCE(?, page_eyebrow),
+        survey_name = COALESCE(?, survey_name),
+        intro_description = COALESCE(?, intro_description),
+        submission_note = COALESCE(?, submission_note),
+        table_header_bg = COALESCE(?, table_header_bg),
+        accent_color = COALESCE(?, accent_color),
+        icon = COALESCE(?, icon),
+        display_order = COALESCE(?, display_order),
+        is_active = COALESCE(?, is_active)
+      WHERE id = ?
+    `;
+
+    const params = [
+      ranking_slug !== undefined ? ranking_slug : null,
+      ranking_name !== undefined ? ranking_name : null,
+      tag_label !== undefined ? tag_label : null,
+      box_title !== undefined ? box_title : null,
+      description !== undefined ? description : null,
+      button_text !== undefined ? button_text : null,
+      page_title !== undefined ? page_title : null,
+      page_eyebrow !== undefined ? page_eyebrow : null,
+      survey_name !== undefined ? survey_name : null,
+      intro_description !== undefined ? intro_description : null,
+      submission_note !== undefined ? submission_note : null,
+      table_header_bg !== undefined ? table_header_bg : null,
+      accent_color !== undefined ? accent_color : null,
+      icon !== undefined ? icon : null,
+      display_order !== undefined ? parseInt(display_order) : null,
+      is_active !== undefined ? (is_active ? 1 : 0) : null,
+      id
+    ];
+
+    await pool.query(sql, params);
+    res.json({ success: true, message: '✅ Ranking box updated successfully' });
+  } catch (err) {
+    console.error('❌ Error updating ranking box:', err);
+    res.status(500).json({ message: 'Error updating ranking box: ' + err.message });
+  }
+});
+
+// DELETE /boxes/:id - Delete ranking box
+router.delete('/boxes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM ranking_faq_boxes WHERE id = ?', [id]);
+    res.json({ success: true, message: '✅ Ranking box deleted successfully' });
+  } catch (err) {
+    console.error('❌ Error deleting ranking box:', err);
+    res.status(500).json({ message: 'Error deleting ranking box: ' + err.message });
+  }
+});
+
+// ==========================================
+// FAQ QUESTIONS & EVIDENCE CRUD
+// ==========================================
+
+// POST /add-ranking-data - Add ranking FAQ question with file or external URL
 router.post('/add-ranking-data', upload.single('file'), async (req, res) => {
   try {
-    const { rankingName, sdgNumber, criteriaName, question, year } = req.body;
+    const {
+      rankingName,
+      sdgNumber,
+      criteriaName,
+      question,
+      answer,
+      externalUrl,
+      evidenceLabel,
+      year
+    } = req.body;
 
-    console.log('📥 Received data:', { rankingName, sdgNumber, criteriaName, question, year });
-    
-    // Validation
-    if (!rankingName || !sdgNumber || !criteriaName || !question || !year) {
-      return res.status(400).json({ 
-        message: 'All fields are required: rankingName, sdgNumber, criteriaName, question, year' 
+    if (!rankingName || !sdgNumber || !criteriaName || !question) {
+      return res.status(400).json({
+        message: 'Required fields: rankingName, sdgNumber, criteriaName, question'
       });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ message: 'PDF file is required' });
+    let fileName = '';
+    let fileUrl = '';
+    let fileSize = '0 MB';
+    let originalName = '';
+
+    if (req.file) {
+      if (!fs.existsSync(req.file.path)) {
+        return res.status(500).json({ message: 'File storage failed' });
+      }
+      fileName = req.file.filename;
+      fileUrl = `/uploads/ranking-data/${req.file.filename}`;
+      fileSize = `${(req.file.size / (1024 * 1024)).toFixed(2)} MB`;
+      originalName = req.file.originalname;
+    } else if (externalUrl) {
+      fileUrl = externalUrl;
+      fileName = externalUrl.split('/').pop() || 'external-link';
+    } else {
+      return res.status(400).json({ message: 'Either a PDF file upload or an External URL link is required' });
     }
 
-    console.log('📄 File uploaded:', {
-      originalname: req.file.originalname,
-      filename: req.file.filename,
-      size: req.file.size,
-      path: req.file.path
-    });
-
-    // Validate file was actually saved
-    if (!fs.existsSync(req.file.path)) {
-      console.error('❌ File was not saved to disk:', req.file.path);
-      return res.status(500).json({ message: 'File storage failed' });
-    }
-
-    // CRITICAL: Use the correct file URL that matches your static file serving
-    const fileInfo = {
-      fileName: req.file.filename,
-      fileUrl: `/uploads/ranking-data/${req.file.filename}`, // This matches your static config
-      fileSize: `${(req.file.size / (1024 * 1024)).toFixed(2)} MB`,
-      originalName: req.file.originalname
-    };
-
-    console.log('💾 File info for database:', fileInfo);
-
-    // Note: some installations may not have an `original_file_name` column
-    // in the `ranking_data` table. To remain compatible, we do NOT insert
-    // that column here. If you want to preserve the original filename in
-    // the database, add the column with:
-    // ALTER TABLE ranking_data ADD COLUMN original_file_name VARCHAR(255) NULL;
+    const answerVal = answer || 'Yes';
+    const extUrlVal = externalUrl || null;
+    const evLabelVal = evidenceLabel || '[Link 1]';
+    const yearVal = year || '2026';
 
     const sql = `
       INSERT INTO ranking_data 
-      (ranking_name, sdg_number, criteria_name, question, file_name, file_url, file_size, upload_date, year, is_visible)
-      VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, 1)
+      (ranking_name, sdg_number, criteria_name, question, answer, file_name, file_url, external_url, evidence_label, file_size, original_file_name, upload_date, year, is_visible)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, 1)
     `;
 
     const params = [
@@ -127,54 +312,61 @@ router.post('/add-ranking-data', upload.single('file'), async (req, res) => {
       parseInt(sdgNumber),
       criteriaName,
       question,
-      fileInfo.fileName,
-      fileInfo.fileUrl,
-      fileInfo.fileSize,
-      year
+      answerVal,
+      fileName,
+      fileUrl,
+      extUrlVal,
+      evLabelVal,
+      fileSize,
+      originalName,
+      yearVal
     ];
 
-    try {
-      const [result] = await pool.query(sql, params);
-      res.status(201).json({ 
-        success: true,
-        message: '✅ Ranking data added successfully',
-        id: result.insertId,
-        fileUrl: fileInfo.fileUrl
-      });
-    } catch (err) {
-      console.error('❌ Database insertion error:', err);
-      // Delete the uploaded file if DB insertion failed
-      if (fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      return res.status(500).json({ message: 'Database error: ' + err.message });
-    }
-
+    const [result] = await pool.query(sql, params);
+    res.status(201).json({
+      success: true,
+      message: '✅ Ranking FAQ criteria & evidence added successfully',
+      id: result.insertId,
+      fileUrl
+    });
   } catch (error) {
     console.error('❌ Add ranking error:', error);
-    
-    // Clean up file if error occurred
     if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
+      try { fs.unlinkSync(req.file.path); } catch (e) {}
     }
-    
     res.status(500).json({ message: 'Server error: ' + error.message });
   }
 });
 
-// GET /rankingssite
+// GET /rankingssite - Get all criteria FAQ items (public & admin)
 router.get('/rankingssite', async (req, res) => {
-  // Support optional visibility filter for public site consumption
   const onlyVisible = req.query.visible === '1' || String(req.query.visible).toLowerCase() === 'true';
-  const sql = `SELECT * FROM ranking_data ${onlyVisible ? 'WHERE is_visible = 1' : ''} ORDER BY id DESC`;
-  
+  const { rankingName, sdgNumber } = req.query;
+
+  let whereClauses = [];
+  let params = [];
+
+  if (onlyVisible) {
+    whereClauses.push('is_visible = 1');
+  }
+  if (rankingName) {
+    whereClauses.push('ranking_name = ?');
+    params.push(rankingName);
+  }
+  if (sdgNumber) {
+    whereClauses.push('sdg_number = ?');
+    params.push(parseInt(sdgNumber));
+  }
+
+  const whereStr = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+  const sql = `SELECT * FROM ranking_data ${whereStr} ORDER BY id DESC`;
+
   try {
-    const [results] = await pool.query(sql);
+    const [results] = await pool.query(sql, params);
     const normalizedData = results.map((row) => {
-      // Ensure file URLs are correct
       let fileUrl = row.file_url;
       if (!fileUrl || fileUrl.includes('...')) {
-        fileUrl = `/uploads/ranking-data/${row.file_name}`;
+        fileUrl = row.file_name ? `/uploads/ranking-data/${row.file_name}` : row.external_url || '';
       }
 
       return {
@@ -183,11 +375,14 @@ router.get('/rankingssite', async (req, res) => {
         sdgNumber: Number(row.sdg_number) || 0,
         criteriaName: row.criteria_name || '',
         question: row.question || '',
+        answer: row.answer || 'Yes',
         fileName: row.file_name || '',
         fileUrl: fileUrl,
+        externalUrl: row.external_url || '',
+        evidenceLabel: row.evidence_label || '[Link 1]',
         fileSize: row.file_size || '0 MB',
         uploadDate: row.upload_date ? new Date(row.upload_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        year: row.year || '2025',
+        year: row.year || '2026',
         isVisible: Boolean(row.is_visible),
         originalFileName: row.original_file_name || row.file_name || ''
       };
@@ -200,118 +395,36 @@ router.get('/rankingssite', async (req, res) => {
   }
 });
 
-// File download endpoint - FIXED to work with your static file setup
-router.get('/download/:filename', async (req, res) => {
-  const filename = req.params.filename;
-  const filePath = path.join(uploadFolder, filename);
-  
-  console.log('📥 Download request for:', filename);
-  console.log('📁 File path:', filePath);
-  
-  if (!fs.existsSync(filePath)) {
-    console.error('❌ File not found for download:', filePath);
-    console.log('📂 Available files:', fs.readdirSync(uploadFolder));
-    
-    return res.status(404).json({ 
-      error: 'File not found',
-      message: `File '${filename}' does not exist in upload directory`,
-      filename: filename,
-      requestedPath: filePath,
-      availableFiles: fs.readdirSync(uploadFolder),
-      staticUrl: `${req.protocol}://${req.get('host')}/uploads/ranking-data/${filename}`
-    });
-  }
-
-  try {
-    const [results] = await pool.query('SELECT original_file_name FROM ranking_data WHERE file_name = ?', [filename]);
-    let downloadName = filename;
-    if (results && results.length > 0 && results[0].original_file_name) {
-      downloadName = results[0].original_file_name;
-    } else if (filename.includes('-')) {
-      downloadName = filename.split('-').slice(1).join('-');
-    }
-
-    console.log('📤 Serving file download:', downloadName);
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.on('error', (err) => {
-      console.error('❌ File stream error:', err);
-      res.status(500).json({ message: 'Error reading file' });
-    });
-
-    fileStream.pipe(res);
-  } catch (err) {
-    console.error('❌ Error fetching original filename:', err);
-    return res.status(500).json({ message: 'Error fetching original filename' });
-  }
-});
-
-// File view endpoint - FIXED to work with your static file setup
-router.get('/view/:filename', (req, res) => {
-  const filename = req.params.filename;
-  const filePath = path.join(uploadFolder, filename);
-  
-  console.log('👀 View request for:', filename);
-  console.log('📁 File path:', filePath);
-  
-  if (!fs.existsSync(filePath)) {
-    console.error('❌ File not found for viewing:', filePath);
-    console.log('📂 Available files:', fs.readdirSync(uploadFolder));
-    
-    return res.status(404).json({ 
-      error: 'File not found',
-      message: `File '${filename}' does not exist in upload directory`,
-      filename: filename,
-      requestedPath: filePath,
-      availableFiles: fs.readdirSync(uploadFolder),
-      staticUrl: `${req.protocol}://${req.get('host')}/uploads/ranking-data/${filename}`
-    });
-  }
-
-  console.log('✅ File found, serving for viewing...');
-
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', 'inline; filename="document.pdf"');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  
-  const fileStream = fs.createReadStream(filePath);
-  fileStream.on('error', (err) => {
-    console.error('❌ File stream error:', err);
-    res.status(500).json({ message: 'Error reading file' });
-  });
-  
-  fileStream.pipe(res);
-});
-
-// PUT /update-ranking-site/:id
+// PUT /update-ranking-site/:id - Update FAQ question & evidence
 router.put('/update-ranking-site/:id', upload.single('file'), async (req, res) => {
-  const id = req.params.id;
-  const { rankingName, sdgNumber, criteriaName, question, year, isVisible } = req.body;
-  const uploaded = req.file;
-
+  const { id } = req.params;
+  const {
+    rankingName,
+    sdgNumber,
+    criteriaName,
+    question,
+    answer,
+    externalUrl,
+    evidenceLabel,
+    year,
+    isVisible
+  } = req.body;
 
   let newFileInfo = null;
-  if (uploaded) {
+  if (req.file) {
     newFileInfo = {
-      fileName: uploaded.filename,
-      fileUrl: `/uploads/ranking-data/${uploaded.filename}`, // Match your static config
-      fileSize: `${(uploaded.size / (1024 * 1024)).toFixed(2)} MB`,
-      originalName: uploaded.originalname
+      fileName: req.file.filename,
+      fileUrl: `/uploads/ranking-data/${req.file.filename}`,
+      fileSize: `${(req.file.size / (1024 * 1024)).toFixed(2)} MB`,
+      originalName: req.file.originalname
     };
-    console.log('📄 New file uploaded:', newFileInfo);
   }
 
-  // Normalize isVisible which may arrive as string ('true'/'false' or '1'/'0') or boolean
   let visibilityVal = null;
   if (typeof isVisible !== 'undefined' && isVisible !== null) {
     const v = String(isVisible).toLowerCase();
     if (v === 'true' || v === '1' || v === 'yes' || v === 'on') visibilityVal = 1;
     else if (v === 'false' || v === '0' || v === 'no' || v === 'off') visibilityVal = 0;
-    else visibilityVal = null;
   }
 
   const sql = `
@@ -320,6 +433,9 @@ router.put('/update-ranking-site/:id', upload.single('file'), async (req, res) =
       sdg_number = COALESCE(?, sdg_number),
       criteria_name = COALESCE(?, criteria_name),
       question = COALESCE(?, question),
+      answer = COALESCE(?, answer),
+      external_url = COALESCE(?, external_url),
+      evidence_label = COALESCE(?, evidence_label),
       file_name = COALESCE(?, file_name),
       file_url = COALESCE(?, file_url),
       file_size = COALESCE(?, file_size),
@@ -328,60 +444,58 @@ router.put('/update-ranking-site/:id', upload.single('file'), async (req, res) =
     WHERE id = ?
   `;
 
-  const performUpdate = async (fileNameVal, fileUrlVal, fileSizeVal/*, originalNameVal */) => {
-    const params = [
-      rankingName,
-      sdgNumber ? parseInt(sdgNumber) : null,
-      criteriaName,
-      question,
-      fileNameVal,
-      fileUrlVal,
-      fileSizeVal,
-      year,
-      visibilityVal,
-      id
-    ].map(param => param === undefined ? null : param);
-
-    await pool.query(sql, params);
-    return;
-  };
-
-  if (newFileInfo) {
-    try {
+  try {
+    if (newFileInfo) {
+      // Remove old file if needed
       const [results] = await pool.query('SELECT file_name FROM ranking_data WHERE id = ?', [id]);
-      if (results && results.length > 0) {
-        const oldFileName = results[0].file_name;
-        if (oldFileName) {
-          const oldFilePath = path.join(uploadFolder, oldFileName);
-          if (fs.existsSync(oldFilePath)) {
-            fs.unlinkSync(oldFilePath);
-            console.log('🗑️ Deleted old file:', oldFileName);
-          }
+      if (results && results.length > 0 && results[0].file_name) {
+        const oldFilePath = path.join(uploadFolder, results[0].file_name);
+        if (fs.existsSync(oldFilePath)) {
+          try { fs.unlinkSync(oldFilePath); } catch (e) {}
         }
       }
-      await performUpdate(newFileInfo.fileName, newFileInfo.fileUrl, newFileInfo.fileSize);
-      res.status(200).json({ success: true, message: '✅ Ranking updated successfully' });
-    } catch (err) {
-      console.error('❌ Error updating ranking with new file:', err);
-      return res.status(500).json({ message: 'Error updating ranking: ' + err.message });
     }
-  } else {
-    try {
-      await performUpdate(null, null, null);
-      res.status(200).json({ success: true, message: '✅ Ranking updated successfully' });
-    } catch (err) {
-      console.error('❌ Error updating ranking:', err);
-      return res.status(500).json({ message: 'Error updating ranking: ' + err.message });
-    }
+
+    const params = [
+      rankingName !== undefined ? rankingName : null,
+      sdgNumber ? parseInt(sdgNumber) : null,
+      criteriaName !== undefined ? criteriaName : null,
+      question !== undefined ? question : null,
+      answer !== undefined ? answer : null,
+      externalUrl !== undefined ? externalUrl : null,
+      evidenceLabel !== undefined ? evidenceLabel : null,
+      newFileInfo ? newFileInfo.fileName : null,
+      newFileInfo ? newFileInfo.fileUrl : (externalUrl ? externalUrl : null),
+      newFileInfo ? newFileInfo.fileSize : null,
+      year !== undefined ? year : null,
+      visibilityVal,
+      id
+    ];
+
+    await pool.query(sql, params);
+    res.status(200).json({ success: true, message: '✅ Ranking FAQ criteria updated successfully' });
+  } catch (err) {
+    console.error('❌ Error updating ranking:', err);
+    res.status(500).json({ message: 'Error updating ranking: ' + err.message });
+  }
+});
+
+// PATCH /toggle-visibility/:id - Toggle visibility
+router.patch('/toggle-visibility/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('UPDATE ranking_data SET is_visible = NOT is_visible WHERE id = ?', [id]);
+    const [rows] = await pool.query('SELECT is_visible FROM ranking_data WHERE id = ?', [id]);
+    res.json({ success: true, isVisible: Boolean(rows[0]?.is_visible) });
+  } catch (err) {
+    console.error('❌ Error toggling visibility:', err);
+    res.status(500).json({ message: 'Error toggling visibility' });
   }
 });
 
 // DELETE /delete-ranking-site/:id
 router.delete('/delete-ranking-site/:id', async (req, res) => {
-  const id = req.params.id;
-
-  console.log('🗑️ Delete request for ID:', id);
-
+  const { id } = req.params;
   try {
     const [results] = await pool.query('SELECT file_name FROM ranking_data WHERE id = ?', [id]);
     if (results.length === 0) return res.status(404).json({ message: 'Not found' });
@@ -390,76 +504,36 @@ router.delete('/delete-ranking-site/:id', async (req, res) => {
     if (fileName) {
       const fullPath = path.join(uploadFolder, fileName);
       if (fs.existsSync(fullPath)) {
-        try {
-          fs.unlinkSync(fullPath);
-          console.log('🗑️ Deleted file:', fileName);
-        } catch (e) {
-          console.warn('⚠️ Failed to unlink file:', fullPath, e.message);
-        }
+        try { fs.unlinkSync(fullPath); } catch (e) {}
       }
     }
 
     await pool.query('DELETE FROM ranking_data WHERE id = ?', [id]);
-    res.status(200).json({ message: '✅ Ranking deleted successfully' });
+    res.status(200).json({ message: '✅ Ranking FAQ item deleted successfully' });
   } catch (err) {
-    console.error('❌ Error deleting ranking:', err);
-    return res.status(500).json({ message: 'Error deleting ranking' });
+    console.error('❌ Error deleting ranking item:', err);
+    res.status(500).json({ message: 'Error deleting ranking item' });
   }
 });
 
-// Test endpoints
-router.get('/test-upload-dir', (req, res) => {
+// File download endpoint
+router.get('/download/:filename', async (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(uploadFolder, filename);
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found on server' });
+  }
+
   try {
-    const files = fs.readdirSync(uploadFolder);
-    const fileDetails = files.map(file => {
-      const filePath = path.join(uploadFolder, file);
-      const stats = fs.statSync(filePath);
-      return {
-        name: file,
-        size: stats.size,
-        created: stats.birthtime,
-        staticUrl: `${req.protocol}://${req.get('host')}/uploads/ranking-data/${file}`,
-        viewUrl: `${req.protocol}://${req.get('host')}${req.baseUrl}/view/${file}`,
-        downloadUrl: `${req.protocol}://${req.get('host')}${req.baseUrl}/download/${file}`
-      };
-    });
-    
-    res.json({
-      success: true,
-      uploadFolder,
-      exists: fs.existsSync(uploadFolder),
-      fileCount: files.length,
-      files: fileDetails
-    });
+    const [results] = await pool.query('SELECT original_file_name FROM ranking_data WHERE file_name = ?', [filename]);
+    let downloadName = filename;
+    if (results && results.length > 0 && results[0].original_file_name) {
+      downloadName = results[0].original_file_name;
+    }
+    res.download(filePath, downloadName);
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Fix existing data endpoint
-router.post('/fix-existing-data', async (req, res) => {
-  const sql = `
-    UPDATE ranking_data 
-    SET 
-      file_url = CONCAT('/uploads/ranking-data/', file_name),
-      year = COALESCE(NULLIF(year, ''), '2025'),
-      year = CASE WHEN year = 'NULL' THEN '2025' ELSE year END
-    WHERE file_url LIKE '%...%' OR year IS NULL OR year = 'NULL' OR year = ''
-  `;
-
-  try {
-    const [result] = await pool.query(sql);
-    res.json({
-      success: true,
-      message: `Fixed ${result.affectedRows} records`,
-      affectedRows: result.affectedRows
-    });
-  } catch (err) {
-    console.error('❌ Error fixing data:', err);
-    return res.status(500).json({ message: 'Error fixing data: ' + err.message });
+    res.download(filePath, filename);
   }
 });
 
