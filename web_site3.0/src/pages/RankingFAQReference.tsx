@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRankingData } from '../contexts/RankingDataContext';
 import {
@@ -289,6 +289,16 @@ export function RankingFAQReference() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedYear, setSelectedYear] = useState<string>('all');
 
+  // Always reset scroll to top so the page loads starting from the search section onwards
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'manual';
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }
+  }, [activeSlug]);
+
   // Extract all data for active ranking from dedicated ranking_faqs table
   const rankingItems = useMemo(() => {
     const list = rankingFAQs || [];
@@ -386,6 +396,7 @@ export function RankingFAQReference() {
 
   const handleTabChange = (slug: string) => {
     navigate(`/ranking-data/site/faq/${slug}`);
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 
   return (

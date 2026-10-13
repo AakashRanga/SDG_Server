@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { App } from './App';
 import { GovernanceData } from './pages/GovernanceData';
 import { GreenOffice } from './pages/GreenOffice';
@@ -58,9 +58,18 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { LoginPage } from "./pages/LoginPage";
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [pathname]);
+  return null;
+}
+
 export function AppRouter() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AuthProvider>
         <GovernanceProvider>
           <EnvironmentProvider>
