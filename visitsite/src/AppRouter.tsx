@@ -54,6 +54,7 @@ import { RankingDataProvider } from './contexts/RankingDataContext';
 import { SDGConsolidatedView } from "./pages/SDGConsolidatedView";
 import { RankingFAQReference } from "./pages/RankingFAQReference";
 import { RankingFAQAdmin } from "./pages/RankingFAQAdmin";
+import { HomePage } from "./pages/HomePage";
 
 export function AppRouter() {
   return <BrowserRouter>
@@ -66,7 +67,10 @@ export function AppRouter() {
                 <SDGProvider>
                   <RankingDataProvider>
                     <Routes>
-                      <Route path="/" element={<App />} />
+                      {/* Public Visitor Home Page */}
+                      <Route path="/" element={<HomePage />} />
+                      <Route path="/admin" element={<App />} />
+                      <Route path="/admin-dashboard" element={<App />} />
                       <Route path="/governance" element={<GovernanceData />} />
                       <Route path="/governance/green-office" element={<GreenOffice />} />
                       <Route path="/governance/committees" element={<Committees />} />

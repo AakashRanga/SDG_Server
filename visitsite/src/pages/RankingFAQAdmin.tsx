@@ -422,16 +422,6 @@ export function RankingFAQAdmin() {
               <span className="hidden sm:inline">Logout</span>
             </button>
 
-            <a
-              href="http://localhost:8081/ranking-data/site"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-all"
-            >
-              <span>View Live Site</span>
-              <ExternalLinkIcon className="w-3.5 h-3.5" />
-            </a>
-
             {/* Tab Switcher */}
             <div className="flex p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold">
               <button

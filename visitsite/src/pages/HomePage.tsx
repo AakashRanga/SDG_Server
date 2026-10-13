@@ -48,7 +48,6 @@ import { useResearch } from "../contexts/ResearchContext";
 import { useInfrastructure } from "../contexts/InfrastructureContext";
 import { useAchievement } from "../contexts/AchievementContext";
 import { useReports } from "../contexts/ReportsContext";
-import { SDGWheel } from "../components/SDGWheel";
 import { useSDG } from "../contexts/SDGContext";
 // Navigation menu structure
 const navigationMenu = [
