@@ -31,6 +31,122 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }
 });
 
+// Auto-ensure ranking FAQ tables exist on live server boot
+async function initRankingFAQDB() {
+  try {
+    // 1. Ensure ranking_faq_boxes
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ranking_faq_boxes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        ranking_slug VARCHAR(100) UNIQUE NOT NULL,
+        ranking_name VARCHAR(255) NOT NULL,
+        tag_label VARCHAR(255) DEFAULT '',
+        box_title VARCHAR(255) NOT NULL,
+        description TEXT,
+        button_text VARCHAR(100) DEFAULT 'Explore',
+        page_title VARCHAR(255) DEFAULT 'SUSTAINABLE DEVELOPMENT GOALS',
+        page_eyebrow VARCHAR(255) DEFAULT '',
+        table_header_bg VARCHAR(50) DEFAULT '#b6862c',
+        accent_color VARCHAR(50) DEFAULT '#10b981',
+        icon VARCHAR(50) DEFAULT '🏆',
+        display_order INT DEFAULT 0,
+        is_active TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 2. Ensure ranking_sdg_goals
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ranking_sdg_goals (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        sdg_number INT NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        color VARCHAR(50) DEFAULT '#0f766e',
+        display_order INT DEFAULT 0,
+        is_active TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_sdg_number (sdg_number)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 3. Ensure ranking_faqs
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ranking_faqs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        ranking_slug VARCHAR(100) NOT NULL DEFAULT 'the-impact-rankings',
+        ranking_name VARCHAR(255) NOT NULL,
+        sdg_number INT NOT NULL,
+        criteria_name VARCHAR(255) NOT NULL,
+        question TEXT NOT NULL,
+        answer VARCHAR(255) DEFAULT 'Yes',
+        file_name VARCHAR(255) DEFAULT NULL,
+        file_url TEXT DEFAULT NULL,
+        file_size VARCHAR(50) DEFAULT NULL,
+        external_url TEXT DEFAULT NULL,
+        evidence_label VARCHAR(255) DEFAULT '[Link 1]',
+        evidence_links TEXT DEFAULT NULL,
+        year VARCHAR(20) DEFAULT '2026',
+        is_visible TINYINT(1) DEFAULT 1,
+        display_order INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_ranking_slug (ranking_slug),
+        INDEX idx_sdg_number (sdg_number)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // 4. Seed default SDG goals if empty
+    const [sdgCount] = await pool.query('SELECT COUNT(*) as count FROM ranking_sdg_goals');
+    if (sdgCount[0].count === 0) {
+      const defaultGoals = [
+        [1, 'No Poverty', '#E5243B', 1, 1],
+        [2, 'Zero Hunger', '#DDA63A', 2, 1],
+        [3, 'Good Health and Well-Being', '#4C9F38', 3, 1],
+        [4, 'Quality Education', '#C5192D', 4, 1],
+        [5, 'Gender Equality', '#FF3A21', 5, 1],
+        [6, 'Clean Water and Sanitation', '#26BDE2', 6, 1],
+        [7, 'Affordable and Clean Energy', '#FCC30B', 7, 1],
+        [8, 'Decent Work and Economic Growth', '#A21942', 8, 1],
+        [9, 'Industry, Innovation and Infrastructure', '#FD6925', 9, 1],
+        [10, 'Reduced Inequalities', '#DD1367', 10, 1],
+        [11, 'Sustainable Cities and Communities', '#FD9D24', 11, 1],
+        [12, 'Responsible Consumption and Production', '#BF8B2E', 12, 1],
+        [13, 'Climate Action', '#3F7E44', 13, 1],
+        [14, 'Life Below Water', '#0A97D9', 14, 1],
+        [15, 'Life on Land', '#56C02B', 15, 1],
+        [16, 'Peace, Justice and Strong Institutions', '#00689D', 16, 1],
+        [17, 'Partnerships for the Goals', '#19486A', 17, 1]
+      ];
+      for (const [num, title, color, order, active] of defaultGoals) {
+        await pool.query(
+          'INSERT INTO ranking_sdg_goals (sdg_number, title, color, display_order, is_active) VALUES (?, ?, ?, ?, ?)',
+          [num, title, color, order, active]
+        );
+      }
+      console.log('✅ Auto-seeded default 17 SDG goals in ranking_sdg_goals');
+    }
+
+    // 5. Seed default 3 ranking boxes if empty
+    const [boxCount] = await pool.query('SELECT COUNT(*) as count FROM ranking_faq_boxes');
+    if (boxCount[0].count === 0) {
+      await pool.query(`
+        INSERT INTO ranking_faq_boxes 
+        (ranking_slug, ranking_name, tag_label, box_title, description, button_text, page_title, page_eyebrow, table_header_bg, accent_color, icon, display_order, is_active)
+        VALUES
+        ('green-metrics', 'Green Metrics', 'GREENMETRIC', 'GREEN METRICS', 'Campus setting, energy, waste, water & eco-education', 'Explore', 'SUSTAINABLE DEVELOPMENT GOALS', 'WORLD UNIVERSITY RANKINGS', '#0f766e', '#10b981', '🌍', 1, 1),
+        ('qs-sustainability', 'QS Sustainability', 'QS RANKINGS', 'QS SUSTAINABILITY', 'Environmental, social & governance impact metrics', 'Explore', 'SUSTAINABLE DEVELOPMENT GOALS', 'QS WORLD UNIVERSITY RANKINGS', '#15803d', '#22c55e', '🌱', 2, 1),
+        ('the-impact-rankings', 'THE Impact Rankings', 'TIMES HIGHER EDUCATION', 'THE IMPACT RANKINGS', '17 UN Sustainable Development Goals survey & evidence', 'Explore', 'SUSTAINABLE DEVELOPMENT GOALS', 'TIMES HIGHER EDUCATION', '#b6862c', '#f59e0b', '🏆', 3, 1)
+      `);
+      console.log('✅ Auto-seeded default 3 ranking boxes in ranking_faq_boxes');
+    }
+  } catch (err) {
+    console.error('⚠️ [rankingFAQ auto-init warning]:', err.message);
+  }
+}
+initRankingFAQDB();
+
 // ==========================================
 // 1. RANKING FAQ BOXES (Templates) CRUD
 // ==========================================

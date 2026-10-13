@@ -1,8 +1,12 @@
 import express from 'express';
 import crypto from 'crypto';
 import pool from '../db.js';
+import { initAuthTable } from '../setup_auth_table.js';
 
 const router = express.Router();
+
+// Auto-ensure admin_users table exists on server start
+initAuthTable().catch(err => console.error('⚠️ [Auth table auto-init warning]:', err.message));
 
 // Helper: Hash password with salt using native crypto.scryptSync
 function hashPassword(password, salt) {
