@@ -52,3 +52,8 @@ Thumbs.db
 *.sln
 *.sw?
 *.local
+
+# Microsoft Office Temporary & Lock Files
+~$*
+.~lock.*#
+*.tmp
