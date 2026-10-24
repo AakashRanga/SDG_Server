@@ -519,7 +519,24 @@ router.delete('/delete-ranking-site/:id', async (req, res) => {
 // File download endpoint
 router.get('/download/:filename', async (req, res) => {
   const filename = req.params.filename;
-  const filePath = path.join(uploadFolder, filename);
+  let filePath = path.join(uploadFolder, filename);
+
+  if (!fs.existsSync(filePath)) {
+    const candidateDirs = [
+      path.join(__dirname, "../../../uploads/ranking-faq"),
+      path.join(__dirname, "../../../../visitsite/uploads/ranking-data"),
+      path.join(__dirname, "../../../../visitsite/uploads/ranking-faq"),
+      path.join(__dirname, "../../../../web_site3.0/uploads/ranking-data"),
+      path.join(__dirname, "../../../../web_site3.0/uploads/ranking-faq"),
+    ];
+    for (const cDir of candidateDirs) {
+      const candidatePath = path.join(cDir, filename);
+      if (fs.existsSync(candidatePath)) {
+        filePath = candidatePath;
+        break;
+      }
+    }
+  }
 
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ error: 'File not found on server' });

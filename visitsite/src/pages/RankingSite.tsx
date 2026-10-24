@@ -817,9 +817,10 @@ export function RankingSite() {
                       </div>
                     </div>
                     <div className="flex gap-4">
-					
-
-                      <motion.button onClick={() => viewFile(item.fileUrl || `/uploads/ranking-data/${item.fileName}`)} whileHover={{
+                      <motion.button onClick={() => {
+                        const target = item.fileUrl || (item.fileName ? `/uploads/ranking-data/${item.fileName}` : '');
+                        if (target) viewFile(target);
+                      }} whileHover={{
                         scale: 1.05
                       }} whileTap={{
                         scale: 0.95

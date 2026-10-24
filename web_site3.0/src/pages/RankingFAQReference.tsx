@@ -386,11 +386,19 @@ export function RankingFAQReference() {
     return counts;
   }, [rankingItems]);
 
-  const handleEvidenceClick = (fileUrl: string, fileName: string) => {
-    if (previewFile) {
-      previewFile(fileName || fileUrl);
-    } else {
-      viewFile(fileUrl);
+  const handleEvidenceClick = (fileUrl?: string, fileName?: string) => {
+    let target = fileUrl;
+    if (target && target.includes('/uploads/ranking-faq/')) {
+      target = target.replace('/uploads/ranking-faq/', '/uploads/ranking-data/');
+    }
+    if (!target && fileName) {
+      target = `/uploads/ranking-data/${fileName}`;
+    } else if (target && !target.startsWith('http') && !target.startsWith('/uploads/')) {
+      const clean = target.startsWith('/') ? target.slice(1) : target;
+      target = clean.startsWith('uploads/') ? `/${clean}` : `/uploads/ranking-data/${clean}`;
+    }
+    if (target) {
+      viewFile(target);
     }
   };
 
@@ -685,11 +693,23 @@ export function RankingFAQReference() {
                                         ? `[Link ${linkIdx + 1}]`
                                         : (item.evidenceLabel || `[Link ${linkIdx + 1}]`);
                                       const label = (lnk.label && lnk.label.trim()) ? lnk.label.trim() : fallbackLabel;
-                                      const isUrl = lnk.type === 'url' || (Boolean(lnk.url) && !lnk.url.startsWith('/uploads') && !lnk.fileName);
+                                      const isUrl = Boolean(lnk.type === 'url' || (lnk.url && (lnk.url.startsWith('http://') || lnk.url.startsWith('https://'))));
+                                      let resolvedUrl = lnk.url || '';
+                                      if (resolvedUrl && resolvedUrl.includes('/uploads/ranking-faq/')) {
+                                        resolvedUrl = resolvedUrl.replace('/uploads/ranking-faq/', '/uploads/ranking-data/');
+                                      }
+                                      if (!isUrl) {
+                                        if (resolvedUrl && !resolvedUrl.startsWith('http') && !resolvedUrl.startsWith('/uploads/')) {
+                                          const clean = resolvedUrl.startsWith('/') ? resolvedUrl.slice(1) : resolvedUrl;
+                                          resolvedUrl = clean.startsWith('uploads/') ? `/${clean}` : `/uploads/ranking-data/${clean}`;
+                                        } else if (!resolvedUrl && lnk.fileName) {
+                                          resolvedUrl = `/uploads/ranking-data/${lnk.fileName}`;
+                                        }
+                                      }
                                       links.push({
                                         id: `${item.id}-link-${linkIdx}`,
                                         label,
-                                        url: lnk.url,
+                                        url: resolvedUrl,
                                         isUrl,
                                         fileName: lnk.fileName,
                                         fileSize: item.fileSize
@@ -700,8 +720,15 @@ export function RankingFAQReference() {
                                   // Legacy single field fallback
                                   const fallbackLabel = group.items.length > 1 ? `[Link ${itemIdx + 1}]` : `[Link 1]`;
                                   const label = item.evidenceLabel?.trim() ? item.evidenceLabel : fallbackLabel;
-                                  const isUrl = Boolean(item.externalUrl && item.externalUrl.trim());
-                                  const url = isUrl ? item.externalUrl : item.fileUrl;
+                                  const isUrl = Boolean(item.externalUrl && item.externalUrl.trim() && (item.externalUrl.startsWith('http://') || item.externalUrl.startsWith('https://')));
+                                  let url = isUrl ? item.externalUrl : (item.fileUrl || (item.fileName ? `/uploads/ranking-data/${item.fileName}` : ''));
+                                  if (url && url.includes('/uploads/ranking-faq/')) {
+                                    url = url.replace('/uploads/ranking-faq/', '/uploads/ranking-data/');
+                                  }
+                                  if (!isUrl && url && !url.startsWith('http') && !url.startsWith('/uploads/')) {
+                                    const clean = url.startsWith('/') ? url.slice(1) : url;
+                                    url = clean.startsWith('uploads/') ? `/${clean}` : `/uploads/ranking-data/${clean}`;
+                                  }
                                   if (url || item.fileName) {
                                     links.push({
                                       id: `${item.id}-legacy`,
@@ -725,7 +752,7 @@ export function RankingFAQReference() {
                                 <button
                                   key={link.id}
                                   onClick={() => {
-                                    if (link.isUrl && link.url) {
+                                    if (link.isUrl && link.url && (link.url.startsWith('http://') || link.url.startsWith('https://'))) {
                                       window.open(link.url, '_blank', 'noopener,noreferrer');
                                     } else {
                                       handleEvidenceClick(link.url, link.fileName);

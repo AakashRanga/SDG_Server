@@ -216,12 +216,10 @@ export function RankingData() {
     } catch (err) {
       console.error('❌ Download failed:', err);
 
-      // Try to open the static URL as fallback
+      // Try to open the file as fallback
       try {
         const filename = extractFilename(item.fileName);
-        const staticUrl = `http://180.235.121.250:8006/uploads/ranking-data/${filename}`;
-        console.log('🔄 Trying fallback to static URL:', staticUrl);
-        window.open(staticUrl, '_blank');
+        viewFile(`/uploads/ranking-data/${filename}`);
       } catch (fallbackError) {
         console.error('❌ Fallback also failed:', fallbackError);
         alert('Download failed. The file may not exist on the server.');

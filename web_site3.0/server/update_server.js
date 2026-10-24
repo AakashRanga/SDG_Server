@@ -85,19 +85,48 @@ app.use(
   })
 );
 
-// Static file serving
+// ======================
+// STATIC FILE SERVING - Comprehensive Multi-Path Resolution
+// ======================
 app.use(express.static("public"));
-app.use(
-  "/uploads/ranking-data",
-  express.static(path.join(__dirname, "..", "uploads", "ranking-data"))
-);
-app.use(
-  "/uploads/ranking-faq",
-  express.static(path.join(__dirname, "..", "uploads", "ranking-faq"))
-);
-// Serve other uploads from the server uploads folder
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+const candidateUploadDirs = [
+  path.join(__dirname, "..", "uploads"),
+  path.join(__dirname, "uploads"),
+  path.join(__dirname, "..", "..", "visitsite", "uploads"),
+  path.join(__dirname, "..", "..", "web_site3.0", "uploads"),
+  path.join(process.cwd(), "uploads"),
+  path.join(process.cwd(), "..", "uploads"),
+];
+
+// Deduplicate dirs
+const uniqueUploadDirs = Array.from(new Set(candidateUploadDirs));
+
+// Ensure essential subdirectories exist in primary folder
+const primaryUploadDir = path.join(__dirname, "..", "uploads");
+['ranking-data', 'ranking-faq', 'awards', 'annual_reports', 'impact_reports', 'sustainability_metrics'].forEach(sub => {
+  const targetSub = path.join(primaryUploadDir, sub);
+  if (!fs.existsSync(targetSub)) {
+    try { fs.mkdirSync(targetSub, { recursive: true }); } catch (e) {}
+  }
+});
+
+// 1. Mount specific ranking-data routes across all locations (with ranking-faq fallback)
+uniqueUploadDirs.forEach(baseDir => {
+  app.use("/uploads/ranking-data", express.static(path.join(baseDir, "ranking-data")));
+  app.use("/uploads/ranking-data", express.static(path.join(baseDir, "ranking-faq")));
+});
+
+// 2. Mount specific ranking-faq routes across all locations (with ranking-data fallback)
+uniqueUploadDirs.forEach(baseDir => {
+  app.use("/uploads/ranking-faq", express.static(path.join(baseDir, "ranking-faq")));
+  app.use("/uploads/ranking-faq", express.static(path.join(baseDir, "ranking-data")));
+});
+
+// 3. Mount root /uploads across all locations
+uniqueUploadDirs.forEach(baseDir => {
+  app.use("/uploads", express.static(baseDir));
+});
 // ======================
 // FILE UPLOAD CONFIGURATION
 // ======================

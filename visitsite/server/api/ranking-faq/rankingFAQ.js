@@ -9,8 +9,8 @@ const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Upload storage configuration for FAQ evidence files
-const uploadDir = path.join(__dirname, '..', '..', '..', 'uploads', 'ranking-faq');
+// Upload storage configuration - UNIFIED to single uploads/ranking-data folder
+const uploadDir = path.join(__dirname, '..', '..', '..', 'uploads', 'ranking-data');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -441,9 +441,13 @@ function parseEvidenceLinks(row) {
     if (row.external_url) {
       list = [{ type: 'url', url: row.external_url, label: row.evidence_label || '[Link 1]' }];
     } else if (row.file_url) {
-      list = [{ type: 'file', url: row.file_url, label: row.evidence_label || '[Link 1]', fileName: row.file_name }];
+      let u = row.file_url;
+      if (u.includes('/uploads/ranking-faq/')) {
+        u = u.replace('/uploads/ranking-faq/', '/uploads/ranking-data/');
+      }
+      list = [{ type: 'file', url: u, label: row.evidence_label || '[Link 1]', fileName: row.file_name }];
     } else if (row.file_name) {
-      list = [{ type: 'file', url: `/uploads/ranking-faq/${row.file_name}`, label: row.evidence_label || '[Link 1]', fileName: row.file_name }];
+      list = [{ type: 'file', url: `/uploads/ranking-data/${row.file_name}`, label: row.evidence_label || '[Link 1]', fileName: row.file_name }];
     }
   }
 
@@ -479,8 +483,11 @@ router.get('/faqs', async (req, res) => {
     const [results] = await pool.query(sql, params);
     const normalizedData = results.map((row) => {
       let fileUrl = row.file_url;
+      if (fileUrl && fileUrl.includes('/uploads/ranking-faq/')) {
+        fileUrl = fileUrl.replace('/uploads/ranking-faq/', '/uploads/ranking-data/');
+      }
       if (!fileUrl && row.file_name) {
-        fileUrl = `/uploads/ranking-faq/${row.file_name}`;
+        fileUrl = `/uploads/ranking-data/${row.file_name}`;
       } else if (!fileUrl && row.external_url) {
         fileUrl = row.external_url;
       }
@@ -544,7 +551,7 @@ function resolveIncomingLinks(req) {
       if (specificFile) {
         return {
           type: 'file',
-          url: `/uploads/ranking-faq/${specificFile.filename}`,
+          url: `/uploads/ranking-data/${specificFile.filename}`,
           fileName: specificFile.originalname,
           label: link.label || `[Link ${idx + 1}]`
         };
@@ -553,7 +560,7 @@ function resolveIncomingLinks(req) {
         const f = uploadedFiles[fileCursor++];
         return {
           type: 'file',
-          url: `/uploads/ranking-faq/${f.filename}`,
+          url: `/uploads/ranking-data/${f.filename}`,
           fileName: f.originalname,
           label: link.label || `[Link ${idx + 1}]`
         };
@@ -566,7 +573,7 @@ function resolveIncomingLinks(req) {
       const f = uploadedFiles[0];
       links = [{
         type: 'file',
-        url: `/uploads/ranking-faq/${f.filename}`,
+        url: `/uploads/ranking-data/${f.filename}`,
         fileName: f.originalname,
         label: req.body.evidenceLabel || '[Link 1]'
       }];
@@ -732,6 +739,44 @@ router.delete('/faqs/:id', async (req, res) => {
   } catch (err) {
     console.error('❌ Error deleting FAQ item:', err);
     res.status(500).json({ message: 'Error deleting FAQ item: ' + err.message });
+  }
+});
+
+// GET /download/:filename - File download endpoint for FAQ evidence
+router.get('/download/:filename', async (req, res) => {
+  const filename = req.params.filename;
+  let filePath = path.join(uploadDir, filename);
+
+  if (!fs.existsSync(filePath)) {
+    const candidateDirs = [
+      path.join(__dirname, "../../../uploads/ranking-data"),
+      path.join(__dirname, "../../../../visitsite/uploads/ranking-faq"),
+      path.join(__dirname, "../../../../visitsite/uploads/ranking-data"),
+      path.join(__dirname, "../../../../web_site3.0/uploads/ranking-faq"),
+      path.join(__dirname, "../../../../web_site3.0/uploads/ranking-data"),
+    ];
+    for (const cDir of candidateDirs) {
+      const candidatePath = path.join(cDir, filename);
+      if (fs.existsSync(candidatePath)) {
+        filePath = candidatePath;
+        break;
+      }
+    }
+  }
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found on server' });
+  }
+
+  try {
+    const [results] = await pool.query('SELECT file_name FROM ranking_faqs WHERE file_name = ? LIMIT 1', [filename]);
+    let downloadName = filename;
+    if (results && results.length > 0 && results[0].file_name) {
+      downloadName = results[0].file_name;
+    }
+    res.download(filePath, downloadName);
+  } catch (error) {
+    res.download(filePath, filename);
   }
 });
 

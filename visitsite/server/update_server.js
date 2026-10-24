@@ -46,6 +46,7 @@ import infrastructurePlanningRoutes from "./routes/infrastructurePlanningRoutes.
 import infrastructureBudgetRoutes from "./routes/infrastructureBudgetRoutes.js";
 
 import rankingDataRoutes from "./api/ranking-data/rankingData.js";
+import rankingFAQRoutes from "./api/ranking-faq/rankingFAQ.js";
 
 const app = express();
 const PORT = process.env.SERVER_PORT || (process.env.PORT && process.env.PORT !== '8080' && process.env.PORT !== '8081' ? process.env.PORT : 8006);
@@ -80,64 +81,45 @@ app.use(
 );
 
 // ======================
-// STATIC FILE SERVING - FIXED
+// STATIC FILE SERVING - Comprehensive Multi-Path Resolution
 // ======================
-
-// Get the root directory (where the uploads folder actually is)
-const rootDir = path.join(__dirname, '..');
-const rootUploadsDir = path.join(rootDir, 'uploads');
-const serverUploadsDir = path.join(__dirname, 'uploads');
-
-console.log('=================================');
-console.log('📁 Static File Serving Configuration:');
-console.log(`   Server directory: ${__dirname}`);
-console.log(`   Root directory: ${rootDir}`);
-console.log(`   Root uploads directory: ${rootUploadsDir}`);
-console.log(`   Server uploads directory: ${serverUploadsDir}`);
-console.log('=================================');
-
-// ✅ Primary: Serve from root uploads directory (where files are actually saved)
-if (fs.existsSync(rootUploadsDir)) {
-  app.use('/uploads', express.static(rootUploadsDir));
-  console.log(`✅ Serving static files from: ${rootUploadsDir}`);
-  
-  // Check if awards subdirectory exists
-  const awardsDir = path.join(rootUploadsDir, 'awards');
-  if (fs.existsSync(awardsDir)) {
-    console.log(`✅ Awards directory found: ${awardsDir}`);
-    const files = fs.readdirSync(awardsDir);
-    console.log(`   Files in awards: ${files.length}`);
-    if (files.length > 0) {
-      console.log(`   Sample file: ${files[0]}`);
-    }
-  } else {
-    console.log(`⚠️ Awards directory not found: ${awardsDir}`);
-    fs.mkdirSync(awardsDir, { recursive: true });
-    console.log(`✅ Created awards directory: ${awardsDir}`);
-  }
-} else {
-  console.log(`⚠️ Root uploads directory not found: ${rootUploadsDir}`);
-  // Create it if it doesn't exist
-  fs.mkdirSync(rootUploadsDir, { recursive: true });
-  app.use('/uploads', express.static(rootUploadsDir));
-  console.log(`✅ Created and serving static files from: ${rootUploadsDir}`);
-}
-
-// ✅ Secondary: Serve from server/uploads as fallback
-if (fs.existsSync(serverUploadsDir)) {
-  app.use('/uploads', express.static(serverUploadsDir));
-  console.log(`✅ Serving static files from: ${serverUploadsDir}`);
-}
-
-// ✅ Serve public directory
 app.use(express.static("public"));
 
-// ✅ Serve ranking-data specifically
-const rankingDataDir = path.join(rootDir, 'uploads', 'ranking-data');
-if (fs.existsSync(rankingDataDir)) {
-  app.use('/uploads/ranking-data', express.static(rankingDataDir));
-  console.log(`✅ Serving ranking-data from: ${rankingDataDir}`);
-}
+const candidateUploadDirs = [
+  path.join(__dirname, "..", "uploads"),
+  path.join(__dirname, "uploads"),
+  path.join(__dirname, "..", "..", "visitsite", "uploads"),
+  path.join(__dirname, "..", "..", "web_site3.0", "uploads"),
+  path.join(process.cwd(), "uploads"),
+  path.join(process.cwd(), "..", "uploads"),
+];
+
+const uniqueUploadDirs = Array.from(new Set(candidateUploadDirs));
+
+const primaryUploadDir = path.join(__dirname, "..", "uploads");
+['ranking-data', 'ranking-faq', 'awards', 'annual_reports', 'impact_reports', 'sustainability_metrics'].forEach(sub => {
+  const targetSub = path.join(primaryUploadDir, sub);
+  if (!fs.existsSync(targetSub)) {
+    try { fs.mkdirSync(targetSub, { recursive: true }); } catch (e) {}
+  }
+});
+
+// 1. Mount specific ranking-data routes across all locations (with ranking-faq fallback)
+uniqueUploadDirs.forEach(baseDir => {
+  app.use("/uploads/ranking-data", express.static(path.join(baseDir, "ranking-data")));
+  app.use("/uploads/ranking-data", express.static(path.join(baseDir, "ranking-faq")));
+});
+
+// 2. Mount specific ranking-faq routes across all locations (with ranking-data fallback)
+uniqueUploadDirs.forEach(baseDir => {
+  app.use("/uploads/ranking-faq", express.static(path.join(baseDir, "ranking-faq")));
+  app.use("/uploads/ranking-faq", express.static(path.join(baseDir, "ranking-data")));
+});
+
+// 3. Mount root /uploads across all locations
+uniqueUploadDirs.forEach(baseDir => {
+  app.use("/uploads", express.static(baseDir));
+});
 
 // ✅ Debug endpoint to check file system
 app.get('/debug/uploads', (req, res) => {
@@ -283,6 +265,9 @@ app.use("/api/sustainability-reports", sustainabilityMetricsRoutes);
 
 // Ranking data
 app.use("/api/ranking-data", rankingDataRoutes);
+
+// Dedicated ranking FAQ (boxes + criteria questions)
+app.use("/api/ranking-faq", rankingFAQRoutes);
 
 // ======================
 // CORE API ENDPOINTS

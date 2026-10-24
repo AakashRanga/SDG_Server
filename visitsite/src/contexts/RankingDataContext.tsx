@@ -9,6 +9,21 @@ const getBaseUrl = () => {
   return "http://180.235.121.250:8006";
 };
 
+// Static asset base URL:
+// In live server (e.g. sdg.saveetha.com or 180.235.121.250 on port 80/443),
+// static uploads are served directly by IIS/Nginx without port 8006.
+// In local development, fall back to backend port 8006.
+export const getAssetBaseUrl = () => {
+  if (typeof window === "undefined") {
+    return "http://localhost:8006";
+  }
+  const hostname = window.location.hostname;
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return "http://localhost:8006";
+  }
+  return window.location.origin;
+};
+
 const BASE_URL = getBaseUrl();
 const API = `${BASE_URL}/api/ranking-data`;
 const FAQ_API = `${BASE_URL}/api/ranking-faq`;
@@ -145,10 +160,38 @@ export const RankingDataProvider = ({ children }: { children: ReactNode }) => {
       const rows = res.data || [];
       const formatted = rows.map((r: any) => {
         let fileUrl = r.fileUrl || r.file_url;
-        if (!fileUrl && r.fileName) {
-          fileUrl = `/uploads/ranking-faq/${r.fileName}`;
+        if (fileUrl && fileUrl.includes("/uploads/ranking-faq/")) {
+          fileUrl = fileUrl.replace("/uploads/ranking-faq/", "/uploads/ranking-data/");
+        }
+        if (fileUrl && !fileUrl.startsWith("http") && !fileUrl.startsWith("/uploads/")) {
+          const clean = fileUrl.startsWith("/") ? fileUrl.slice(1) : fileUrl;
+          fileUrl = clean.startsWith("uploads/") ? `/${clean}` : `/uploads/ranking-data/${clean}`;
+        } else if (!fileUrl && (r.fileName || r.file_name)) {
+          const raw = r.fileName || r.file_name;
+          const clean = raw.startsWith("/") ? raw.slice(1) : raw;
+          fileUrl = clean.startsWith("uploads/") ? `/${clean}` : `/uploads/ranking-data/${clean}`;
         } else if (!fileUrl && (r.externalUrl || r.external_url)) {
           fileUrl = r.externalUrl || r.external_url;
+        }
+
+        let evidenceLinks = r.evidenceLinks;
+        if (Array.isArray(evidenceLinks)) {
+          evidenceLinks = evidenceLinks.map((lnk: any) => {
+            if (lnk.type === 'file' || (lnk.fileName && !lnk.url?.startsWith('http'))) {
+              let u = lnk.url || '';
+              if (u && u.includes('/uploads/ranking-faq/')) {
+                u = u.replace('/uploads/ranking-faq/', '/uploads/ranking-data/');
+              }
+              if (u && !u.startsWith('http') && !u.startsWith('/uploads/')) {
+                const clean = u.startsWith('/') ? u.slice(1) : u;
+                u = clean.startsWith('uploads/') ? `/${clean}` : `/uploads/ranking-data/${clean}`;
+              } else if (!u && lnk.fileName) {
+                u = `/uploads/ranking-data/${lnk.fileName}`;
+              }
+              return { ...lnk, url: u };
+            }
+            return lnk;
+          });
         }
 
         return {
@@ -163,7 +206,7 @@ export const RankingDataProvider = ({ children }: { children: ReactNode }) => {
           fileUrl: fileUrl || "",
           externalUrl: r.externalUrl || r.external_url || "",
           evidenceLabel: r.evidenceLabel || r.evidence_label || "[Link 1]",
-          evidenceLinks: r.evidenceLinks || (r.externalUrl ? [{ type: 'url', url: r.externalUrl, label: r.evidenceLabel || '[Link 1]' }] : (fileUrl ? [{ type: 'file', url: fileUrl, label: r.evidenceLabel || '[Link 1]', fileName: r.fileName }] : [])),
+          evidenceLinks: evidenceLinks || (r.externalUrl ? [{ type: 'url', url: r.externalUrl, label: r.evidenceLabel || '[Link 1]' }] : (fileUrl ? [{ type: 'file', url: fileUrl, label: r.evidenceLabel || '[Link 1]', fileName: r.fileName }] : [])),
           fileSize: r.fileSize || r.file_size || "0 MB",
           uploadDate: r.uploadDate || r.upload_date || "",
           year: r.year || "2026",
@@ -183,8 +226,13 @@ export const RankingDataProvider = ({ children }: { children: ReactNode }) => {
       const rows = res.data || [];
       const formatted = rows.map((r: any) => {
         let fileUrl = r.fileUrl || r.file_url;
-        if (!fileUrl && r.file_name) {
-          fileUrl = `/uploads/ranking-data/${r.file_name}`;
+        if (fileUrl && !fileUrl.startsWith("http") && !fileUrl.startsWith("/uploads/")) {
+          const clean = fileUrl.startsWith("/") ? fileUrl.slice(1) : fileUrl;
+          fileUrl = clean.startsWith("uploads/") ? `/${clean}` : `/uploads/ranking-data/${clean}`;
+        } else if (!fileUrl && (r.file_name || r.fileName)) {
+          const raw = r.file_name || r.fileName;
+          const clean = raw.startsWith("/") ? raw.slice(1) : raw;
+          fileUrl = clean.startsWith("uploads/") ? `/${clean}` : `/uploads/ranking-data/${clean}`;
         } else if (!fileUrl && (r.external_url || r.externalUrl)) {
           fileUrl = r.external_url || r.externalUrl;
         }
@@ -433,7 +481,16 @@ export const RankingDataProvider = ({ children }: { children: ReactNode }) => {
       window.open(fileUrl, "_blank");
       return;
     }
-    const finalUrl = fileUrl.startsWith("/") ? `${BASE_URL}${fileUrl}` : `${BASE_URL}/${fileUrl}`;
+    let path = fileUrl.trim();
+    if (!path.startsWith("/")) {
+      if (path.startsWith("uploads/")) {
+        path = `/${path}`;
+      } else {
+        path = `/uploads/ranking-data/${path}`;
+      }
+    }
+    const assetBase = getAssetBaseUrl();
+    const finalUrl = `${assetBase}${path}`;
     window.open(finalUrl, "_blank");
   };
 
@@ -443,26 +500,24 @@ export const RankingDataProvider = ({ children }: { children: ReactNode }) => {
       window.open(fileUrlOrName, "_blank");
       return;
     }
-    try {
-      const parts = fileUrlOrName.split("/");
-      const filename = parts[parts.length - 1];
-      const response = await axios.get(`${API}/download/${filename}`, {
-        responseType: "blob"
-      });
-      const blob = new Blob([response.data], { type: "application/pdf" });
-      const url = window.URL.createObjectURL(blob);
-      window.open(url, "_blank");
-      setTimeout(() => {
-        try { window.URL.revokeObjectURL(url); } catch (e) {}
-      }, 10000);
-    } catch (error) {
-      viewFile(fileUrlOrName);
+    let path = fileUrlOrName.trim();
+    if (path.includes("/uploads/ranking-faq/")) {
+      path = path.replace("/uploads/ranking-faq/", "/uploads/ranking-data/");
     }
+    if (!path.startsWith("/")) {
+      if (path.startsWith("uploads/")) {
+        path = `/${path}`;
+      } else {
+        path = `/uploads/ranking-data/${path}`;
+      }
+    }
+    viewFile(path);
   };
 
   const getStaticFileUrl = (fileName: string) => {
     const cleanFileName = fileName.includes("/") ? fileName.split("/").pop() : fileName;
-    return `${BASE_URL}/uploads/ranking-data/${cleanFileName}`;
+    const assetBase = getAssetBaseUrl();
+    return `${assetBase}/uploads/ranking-data/${cleanFileName}`;
   };
 
   const getRankingDataBySDG = (sdgNumber: number) => {
