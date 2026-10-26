@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import pool from '../../db.js';
+import { runUnifyMigration } from '../migrations/unify_migration.js';
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
@@ -31,9 +32,11 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }
 });
 
-// Auto-ensure ranking FAQ tables exist on live server boot
+// Auto-ensure ranking FAQ tables exist on live server boot & unify with ranking_data
 async function initRankingFAQDB() {
   try {
+    // 0. Ensure ranking_data table schema is unified
+    await runUnifyMigration();
     // 1. Ensure ranking_faq_boxes
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ranking_faq_boxes (
@@ -478,7 +481,7 @@ router.get('/faqs', async (req, res) => {
     }
 
     const whereStr = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-    const sql = `SELECT * FROM ranking_faqs ${whereStr} ORDER BY id DESC`;
+    const sql = `SELECT * FROM ranking_data ${whereStr} ORDER BY display_order ASC, id DESC`;
 
     const [results] = await pool.query(sql, params);
     const normalizedData = results.map((row) => {
@@ -511,7 +514,7 @@ router.get('/faqs', async (req, res) => {
         evidenceLabel: primaryLabel,
         evidenceLinks: evidenceLinks,
         fileSize: row.file_size || '0 MB',
-        uploadDate: row.created_at ? new Date(row.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        uploadDate: row.created_at ? new Date(row.created_at).toISOString().split('T')[0] : (row.upload_date ? new Date(row.upload_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
         year: row.year || '2026',
         isVisible: Boolean(row.is_visible),
         displayOrder: row.display_order || 0
@@ -520,7 +523,7 @@ router.get('/faqs', async (req, res) => {
 
     res.status(200).json(normalizedData);
   } catch (err) {
-    console.error('❌ Error fetching ranking_faqs:', err);
+    console.error('❌ Error fetching ranking_data in FAQ API:', err);
     res.status(500).json({ message: 'Error fetching ranking FAQs: ' + err.message });
   }
 });
@@ -589,7 +592,7 @@ function resolveIncomingLinks(req) {
   return links;
 }
 
-// POST /faqs - Add new FAQ item into ranking_faqs
+// POST /faqs - Add new FAQ item into ranking_data
 router.post('/faqs', upload.any(), async (req, res) => {
   try {
     const {
@@ -621,7 +624,7 @@ router.post('/faqs', upload.any(), async (req, res) => {
     const fileUrl = primaryFile ? primaryFile.url : (primaryUrl || '');
 
     const sql = `
-      INSERT INTO ranking_faqs 
+      INSERT INTO ranking_data 
       (ranking_slug, ranking_name, sdg_number, criteria_name, question, answer, file_name, file_url, external_url, evidence_label, evidence_links, file_size, year, is_visible)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '0 MB', ?, 1)
     `;
@@ -644,17 +647,17 @@ router.post('/faqs', upload.any(), async (req, res) => {
     const [result] = await pool.query(sql, params);
     res.status(201).json({
       success: true,
-      message: '✅ FAQ item added with multiple evidence links successfully',
+      message: '✅ FAQ item added to unified ranking_data table successfully',
       id: result.insertId,
       evidenceLinks: links
     });
   } catch (err) {
-    console.error('❌ Error adding FAQ item:', err);
+    console.error('❌ Error adding FAQ item to ranking_data:', err);
     res.status(500).json({ message: 'Error adding FAQ item: ' + err.message });
   }
 });
 
-// PUT /faqs/:id - Update FAQ item in ranking_faqs
+// PUT /faqs/:id - Update FAQ item in ranking_data
 router.put('/faqs/:id', upload.any(), async (req, res) => {
   const { id } = req.params;
   const {
@@ -684,7 +687,7 @@ router.put('/faqs/:id', upload.any(), async (req, res) => {
     }
 
     const sql = `
-      UPDATE ranking_faqs SET
+      UPDATE ranking_data SET
         ranking_slug = COALESCE(?, ranking_slug),
         ranking_name = COALESCE(?, ranking_name),
         sdg_number = COALESCE(?, sdg_number),
@@ -721,26 +724,41 @@ router.put('/faqs/:id', upload.any(), async (req, res) => {
     await pool.query(sql, params);
     res.json({
       success: true,
-      message: '✅ FAQ item updated with multiple evidence links successfully',
+      message: '✅ FAQ item updated in unified ranking_data table successfully',
       evidenceLinks: links
     });
   } catch (err) {
-    console.error('❌ Error updating FAQ item:', err);
+    console.error('❌ Error updating FAQ item in ranking_data:', err);
     res.status(500).json({ message: 'Error updating FAQ item: ' + err.message });
   }
 });
 
-// DELETE /faqs/:id - Delete FAQ item from ranking_faqs
+// DELETE /faqs/:id - Delete FAQ item from ranking_data
 router.delete('/faqs/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    await pool.query('DELETE FROM ranking_faqs WHERE id = ?', [id]);
-    res.json({ success: true, message: '✅ FAQ item deleted successfully' });
+    await pool.query('DELETE FROM ranking_data WHERE id = ?', [id]);
+    res.json({ success: true, message: '✅ FAQ item deleted successfully from unified ranking_data' });
   } catch (err) {
     console.error('❌ Error deleting FAQ item:', err);
     res.status(500).json({ message: 'Error deleting FAQ item: ' + err.message });
   }
 });
+
+// PATCH or POST /toggle-visibility/:id - Toggle visibility
+const handleToggleVisibility = async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('UPDATE ranking_data SET is_visible = NOT is_visible WHERE id = ?', [id]);
+    const [rows] = await pool.query('SELECT is_visible FROM ranking_data WHERE id = ?', [id]);
+    res.json({ success: true, isVisible: Boolean(rows[0]?.is_visible) });
+  } catch (err) {
+    console.error('❌ Error toggling visibility in FAQ route:', err);
+    res.status(500).json({ message: 'Error toggling visibility: ' + err.message });
+  }
+};
+router.patch('/toggle-visibility/:id', handleToggleVisibility);
+router.post('/toggle-visibility/:id', handleToggleVisibility);
 
 // GET /download/:filename - File download endpoint for FAQ evidence
 router.get('/download/:filename', async (req, res) => {
@@ -769,9 +787,11 @@ router.get('/download/:filename', async (req, res) => {
   }
 
   try {
-    const [results] = await pool.query('SELECT file_name FROM ranking_faqs WHERE file_name = ? LIMIT 1', [filename]);
+    const [results] = await pool.query('SELECT file_name, original_file_name FROM ranking_data WHERE file_name = ? LIMIT 1', [filename]);
     let downloadName = filename;
-    if (results && results.length > 0 && results[0].file_name) {
+    if (results && results.length > 0 && results[0].original_file_name) {
+      downloadName = results[0].original_file_name;
+    } else if (results && results.length > 0 && results[0].file_name) {
       downloadName = results[0].file_name;
     }
     res.download(filePath, downloadName);

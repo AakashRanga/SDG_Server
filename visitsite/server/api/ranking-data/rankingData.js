@@ -256,11 +256,66 @@ router.delete('/boxes/:id', async (req, res) => {
 // FAQ QUESTIONS & EVIDENCE CRUD
 // ==========================================
 
+// Helper to parse evidence links
+function parseEvidenceLinks(row) {
+  if (row.evidence_links) {
+    try {
+      const parsed = typeof row.evidence_links === 'string'
+        ? JSON.parse(row.evidence_links)
+        : row.evidence_links;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((lnk, idx) => {
+          let u = lnk.url || '';
+          if (u.includes('/uploads/ranking-faq/')) {
+            u = u.replace('/uploads/ranking-faq/', '/uploads/ranking-data/');
+          }
+          if (lnk.type === 'file' && u && !u.startsWith('http') && !u.startsWith('/uploads/')) {
+            u = `/uploads/ranking-data/${u.replace(/^uploads\//, '')}`;
+          }
+          return {
+            type: lnk.type || 'url',
+            url: u,
+            label: lnk.label || `[Link ${idx + 1}]`,
+            fileName: lnk.fileName || ''
+          };
+        });
+      }
+    } catch (e) {}
+  }
+
+  let fallback = [];
+  if (row.file_url || row.file_name) {
+    let fUrl = row.file_url;
+    if (fUrl && fUrl.includes('/uploads/ranking-faq/')) {
+      fUrl = fUrl.replace('/uploads/ranking-faq/', '/uploads/ranking-data/');
+    }
+    if (!fUrl && row.file_name) {
+      fUrl = `/uploads/ranking-data/${row.file_name}`;
+    } else if (fUrl && !fUrl.startsWith('http') && !fUrl.startsWith('/uploads/')) {
+      fUrl = `/uploads/ranking-data/${fUrl.replace(/^uploads\//, '')}`;
+    }
+    fallback.push({
+      type: 'file',
+      url: fUrl,
+      fileName: row.file_name || 'document.pdf',
+      label: row.evidence_label || '[Link 1]'
+    });
+  } else if (row.external_url) {
+    fallback.push({
+      type: 'url',
+      url: row.external_url,
+      label: row.evidence_label || '[Link 1]'
+    });
+  }
+  return fallback;
+}
+
 // POST /add-ranking-data - Add ranking FAQ question with file or external URL
 router.post('/add-ranking-data', upload.single('file'), async (req, res) => {
   try {
     const {
       rankingName,
+      rankingSlug,
       sdgNumber,
       criteriaName,
       question,
@@ -300,14 +355,32 @@ router.post('/add-ranking-data', upload.single('file'), async (req, res) => {
     const extUrlVal = externalUrl || null;
     const evLabelVal = evidenceLabel || '[Link 1]';
     const yearVal = year || '2026';
+    const slugVal = rankingSlug || rankingName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+    let evidenceLinksJson = null;
+    if (fileUrl) {
+      evidenceLinksJson = JSON.stringify([{
+        type: 'file',
+        url: fileUrl,
+        fileName: originalName || fileName,
+        label: evLabelVal
+      }]);
+    } else if (extUrlVal) {
+      evidenceLinksJson = JSON.stringify([{
+        type: 'url',
+        url: extUrlVal,
+        label: evLabelVal
+      }]);
+    }
 
     const sql = `
       INSERT INTO ranking_data 
-      (ranking_name, sdg_number, criteria_name, question, answer, file_name, file_url, external_url, evidence_label, file_size, original_file_name, upload_date, year, is_visible)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, 1)
+      (ranking_slug, ranking_name, sdg_number, criteria_name, question, answer, file_name, file_url, external_url, evidence_label, evidence_links, file_size, original_file_name, upload_date, year, is_visible)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, 1)
     `;
 
     const params = [
+      slugVal,
       rankingName,
       parseInt(sdgNumber),
       criteriaName,
@@ -317,6 +390,7 @@ router.post('/add-ranking-data', upload.single('file'), async (req, res) => {
       fileUrl,
       extUrlVal,
       evLabelVal,
+      evidenceLinksJson,
       fileSize,
       originalName,
       yearVal
@@ -325,7 +399,7 @@ router.post('/add-ranking-data', upload.single('file'), async (req, res) => {
     const [result] = await pool.query(sql, params);
     res.status(201).json({
       success: true,
-      message: '✅ Ranking FAQ criteria & evidence added successfully',
+      message: '✅ Ranking FAQ criteria & evidence added successfully to unified table',
       id: result.insertId,
       fileUrl
     });
@@ -341,13 +415,17 @@ router.post('/add-ranking-data', upload.single('file'), async (req, res) => {
 // GET /rankingssite - Get all criteria FAQ items (public & admin)
 router.get('/rankingssite', async (req, res) => {
   const onlyVisible = req.query.visible === '1' || String(req.query.visible).toLowerCase() === 'true';
-  const { rankingName, sdgNumber } = req.query;
+  const { rankingName, rankingSlug, sdgNumber } = req.query;
 
   let whereClauses = [];
   let params = [];
 
   if (onlyVisible) {
     whereClauses.push('is_visible = 1');
+  }
+  if (rankingSlug) {
+    whereClauses.push('ranking_slug = ?');
+    params.push(rankingSlug);
   }
   if (rankingName) {
     whereClauses.push('ranking_name = ?');
@@ -359,7 +437,7 @@ router.get('/rankingssite', async (req, res) => {
   }
 
   const whereStr = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-  const sql = `SELECT * FROM ranking_data ${whereStr} ORDER BY id DESC`;
+  const sql = `SELECT * FROM ranking_data ${whereStr} ORDER BY display_order ASC, id DESC`;
 
   try {
     const [results] = await pool.query(sql, params);
@@ -369,22 +447,30 @@ router.get('/rankingssite', async (req, res) => {
         fileUrl = row.file_name ? `/uploads/ranking-data/${row.file_name}` : row.external_url || '';
       }
 
+      const evidenceLinks = parseEvidenceLinks(row);
+      const primaryUrl = evidenceLinks.find(l => l.type === 'url')?.url || row.external_url || '';
+      const primaryFileUrl = evidenceLinks.find(l => l.type === 'file')?.url || fileUrl || '';
+      const primaryLabel = evidenceLinks[0]?.label || row.evidence_label || '[Link 1]';
+
       return {
         id: String(row.id),
+        rankingSlug: row.ranking_slug || 'the-impact-rankings',
         rankingName: row.ranking_name || '',
         sdgNumber: Number(row.sdg_number) || 0,
         criteriaName: row.criteria_name || '',
         question: row.question || '',
         answer: row.answer || 'Yes',
         fileName: row.file_name || '',
-        fileUrl: fileUrl,
-        externalUrl: row.external_url || '',
-        evidenceLabel: row.evidence_label || '[Link 1]',
+        fileUrl: primaryFileUrl,
+        externalUrl: primaryUrl,
+        evidenceLabel: primaryLabel,
+        evidenceLinks: evidenceLinks,
         fileSize: row.file_size || '0 MB',
-        uploadDate: row.upload_date ? new Date(row.upload_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        uploadDate: row.upload_date ? new Date(row.upload_date).toISOString().split('T')[0] : (row.created_at ? new Date(row.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
         year: row.year || '2026',
         isVisible: Boolean(row.is_visible),
-        originalFileName: row.original_file_name || row.file_name || ''
+        originalFileName: row.original_file_name || row.file_name || '',
+        displayOrder: row.display_order || 0
       };
     });
 
@@ -400,6 +486,7 @@ router.put('/update-ranking-site/:id', upload.single('file'), async (req, res) =
   const { id } = req.params;
   const {
     rankingName,
+    rankingSlug,
     sdgNumber,
     criteriaName,
     question,
@@ -427,8 +514,27 @@ router.put('/update-ranking-site/:id', upload.single('file'), async (req, res) =
     else if (v === 'false' || v === '0' || v === 'no' || v === 'off') visibilityVal = 0;
   }
 
+  let updatedEvidenceLinks = null;
+  if (newFileInfo) {
+    updatedEvidenceLinks = JSON.stringify([{
+      type: 'file',
+      url: newFileInfo.fileUrl,
+      fileName: newFileInfo.originalName,
+      label: evidenceLabel || '[Link 1]'
+    }]);
+  } else if (externalUrl) {
+    updatedEvidenceLinks = JSON.stringify([{
+      type: 'url',
+      url: externalUrl,
+      label: evidenceLabel || '[Link 1]'
+    }]);
+  }
+
+  const slugVal = rankingSlug || (rankingName ? rankingName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : null);
+
   const sql = `
     UPDATE ranking_data SET
+      ranking_slug = COALESCE(?, ranking_slug),
       ranking_name = COALESCE(?, ranking_name),
       sdg_number = COALESCE(?, sdg_number),
       criteria_name = COALESCE(?, criteria_name),
@@ -436,6 +542,7 @@ router.put('/update-ranking-site/:id', upload.single('file'), async (req, res) =
       answer = COALESCE(?, answer),
       external_url = COALESCE(?, external_url),
       evidence_label = COALESCE(?, evidence_label),
+      evidence_links = COALESCE(?, evidence_links),
       file_name = COALESCE(?, file_name),
       file_url = COALESCE(?, file_url),
       file_size = COALESCE(?, file_size),
@@ -456,6 +563,7 @@ router.put('/update-ranking-site/:id', upload.single('file'), async (req, res) =
     }
 
     const params = [
+      slugVal,
       rankingName !== undefined ? rankingName : null,
       sdgNumber ? parseInt(sdgNumber) : null,
       criteriaName !== undefined ? criteriaName : null,
@@ -463,6 +571,7 @@ router.put('/update-ranking-site/:id', upload.single('file'), async (req, res) =
       answer !== undefined ? answer : null,
       externalUrl !== undefined ? externalUrl : null,
       evidenceLabel !== undefined ? evidenceLabel : null,
+      updatedEvidenceLinks,
       newFileInfo ? newFileInfo.fileName : null,
       newFileInfo ? newFileInfo.fileUrl : (externalUrl ? externalUrl : null),
       newFileInfo ? newFileInfo.fileSize : null,
@@ -472,15 +581,15 @@ router.put('/update-ranking-site/:id', upload.single('file'), async (req, res) =
     ];
 
     await pool.query(sql, params);
-    res.status(200).json({ success: true, message: '✅ Ranking FAQ criteria updated successfully' });
+    res.status(200).json({ success: true, message: '✅ Ranking FAQ criteria updated successfully in unified table' });
   } catch (err) {
     console.error('❌ Error updating ranking:', err);
     res.status(500).json({ message: 'Error updating ranking: ' + err.message });
   }
 });
 
-// PATCH /toggle-visibility/:id - Toggle visibility
-router.patch('/toggle-visibility/:id', async (req, res) => {
+// PATCH or POST /toggle-visibility/:id - Toggle visibility
+const handleToggleVisibility = async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query('UPDATE ranking_data SET is_visible = NOT is_visible WHERE id = ?', [id]);
@@ -488,9 +597,11 @@ router.patch('/toggle-visibility/:id', async (req, res) => {
     res.json({ success: true, isVisible: Boolean(rows[0]?.is_visible) });
   } catch (err) {
     console.error('❌ Error toggling visibility:', err);
-    res.status(500).json({ message: 'Error toggling visibility' });
+    res.status(500).json({ message: 'Error toggling visibility: ' + err.message });
   }
-});
+};
+router.patch('/toggle-visibility/:id', handleToggleVisibility);
+router.post('/toggle-visibility/:id', handleToggleVisibility);
 
 // DELETE /delete-ranking-site/:id
 router.delete('/delete-ranking-site/:id', async (req, res) => {

@@ -214,18 +214,22 @@ export const RankingDataProvider = ({ children }: { children: ReactNode }) => {
         };
       });
       setRankingFAQs(formatted);
+      setRankingData(formatted);
     } catch (error) {
       console.error("Error fetching ranking FAQs:", error);
     }
   };
 
-  // 2. Fetch ranking criteria questions & evidence
+  // 2. Fetch ranking criteria questions & evidence (Unified)
   const fetchRankingData = async () => {
     try {
       const res = await axios.get(`${API}/rankingssite`);
       const rows = res.data || [];
       const formatted = rows.map((r: any) => {
         let fileUrl = r.fileUrl || r.file_url;
+        if (fileUrl && fileUrl.includes("/uploads/ranking-faq/")) {
+          fileUrl = fileUrl.replace("/uploads/ranking-faq/", "/uploads/ranking-data/");
+        }
         if (fileUrl && !fileUrl.startsWith("http") && !fileUrl.startsWith("/uploads/")) {
           const clean = fileUrl.startsWith("/") ? fileUrl.slice(1) : fileUrl;
           fileUrl = clean.startsWith("uploads/") ? `/${clean}` : `/uploads/ranking-data/${clean}`;
@@ -237,8 +241,29 @@ export const RankingDataProvider = ({ children }: { children: ReactNode }) => {
           fileUrl = r.external_url || r.externalUrl;
         }
 
+        let evidenceLinks = r.evidenceLinks;
+        if (Array.isArray(evidenceLinks)) {
+          evidenceLinks = evidenceLinks.map((lnk: any) => {
+            if (lnk.type === 'file' || (lnk.fileName && !lnk.url?.startsWith('http'))) {
+              let u = lnk.url || '';
+              if (u && u.includes('/uploads/ranking-faq/')) {
+                u = u.replace('/uploads/ranking-faq/', '/uploads/ranking-data/');
+              }
+              if (u && !u.startsWith('http') && !u.startsWith('/uploads/')) {
+                const clean = u.startsWith('/') ? u.slice(1) : u;
+                u = clean.startsWith('uploads/') ? `/${clean}` : `/uploads/ranking-data/${clean}`;
+              } else if (!u && lnk.fileName) {
+                u = `/uploads/ranking-data/${lnk.fileName}`;
+              }
+              return { ...lnk, url: u };
+            }
+            return lnk;
+          });
+        }
+
         return {
           id: String(r.id),
+          rankingSlug: r.rankingSlug || r.ranking_slug || 'the-impact-rankings',
           rankingName: r.rankingName || r.ranking_name || "",
           sdgNumber: Number(r.sdgNumber || r.sdg_number) || 0,
           criteriaName: r.criteriaName || r.criteria_name || "",
@@ -248,6 +273,7 @@ export const RankingDataProvider = ({ children }: { children: ReactNode }) => {
           fileUrl: fileUrl || "",
           externalUrl: r.externalUrl || r.external_url || "",
           evidenceLabel: r.evidenceLabel || r.evidence_label || "[Link 1]",
+          evidenceLinks: evidenceLinks || (r.externalUrl ? [{ type: 'url', url: r.externalUrl, label: r.evidenceLabel || '[Link 1]' }] : (fileUrl ? [{ type: 'file', url: fileUrl, label: r.evidenceLabel || '[Link 1]', fileName: r.fileName }] : [])),
           fileSize: r.fileSize || r.file_size || "0 MB",
           uploadDate: r.uploadDate || r.upload_date || "",
           year: r.year || "2026",
@@ -256,9 +282,15 @@ export const RankingDataProvider = ({ children }: { children: ReactNode }) => {
         };
       });
       setRankingData(formatted);
+      setRankingFAQs(formatted);
     } catch (error) {
       console.error("Error fetching ranking data:", error);
     }
+  };
+
+  // Helper to refresh all unified ranking data
+  const refreshAllRankingData = async () => {
+    await fetchRankingFAQs();
   };
 
   // 3. Fetch dynamic SDG goals
@@ -275,8 +307,7 @@ export const RankingDataProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     fetchRankingBoxes();
-    fetchRankingFAQs();
-    fetchRankingData();
+    refreshAllRankingData();
     fetchSDGGoals();
   }, []);
 
@@ -318,7 +349,7 @@ export const RankingDataProvider = ({ children }: { children: ReactNode }) => {
     return res.data;
   };
 
-  // Dedicated FAQ CRUD (Dedicated to ranking_faqs)
+  // Dedicated FAQ CRUD (Synced with unified ranking_data)
   const addRankingFAQ = async (data: any) => {
     const formData = new FormData();
     formData.append("rankingName", data.rankingName);
@@ -349,7 +380,7 @@ export const RankingDataProvider = ({ children }: { children: ReactNode }) => {
     const res = await axios.post(`${FAQ_API}/faqs`, formData, {
       headers: { "Content-Type": "multipart/form-data" }
     });
-    await fetchRankingFAQs();
+    await refreshAllRankingData();
     return res.data;
   };
 
@@ -384,17 +415,17 @@ export const RankingDataProvider = ({ children }: { children: ReactNode }) => {
     const res = await axios.put(`${FAQ_API}/faqs/${id}`, formData, {
       headers: { "Content-Type": "multipart/form-data" }
     });
-    await fetchRankingFAQs();
+    await refreshAllRankingData();
     return res.data;
   };
 
   const deleteRankingFAQ = async (id: string) => {
     const res = await axios.delete(`${FAQ_API}/faqs/${id}`);
-    await fetchRankingFAQs();
+    await refreshAllRankingData();
     return res.data;
   };
 
-  // Ranking Criteria FAQ CRUD
+  // Ranking Criteria FAQ CRUD (Synced with unified ranking_data)
   const addRankingData = async (data: any) => {
     const formData = new FormData();
     formData.append("rankingName", data.rankingName);
@@ -418,7 +449,7 @@ export const RankingDataProvider = ({ children }: { children: ReactNode }) => {
       headers: { "Content-Type": "multipart/form-data" }
     });
 
-    await fetchRankingData();
+    await refreshAllRankingData();
   };
 
   const editRankingData = async (id: string, data: any) => {
@@ -441,18 +472,42 @@ export const RankingDataProvider = ({ children }: { children: ReactNode }) => {
       headers: { "Content-Type": "multipart/form-data" }
     });
 
-    await fetchRankingData();
+    await refreshAllRankingData();
   };
 
   const deleteRankingData = async (id: string) => {
     await axios.delete(`${API}/delete-ranking-site/${id}`);
-    await fetchRankingData();
+    await refreshAllRankingData();
   };
 
   const toggleVisibility = async (id: string) => {
-    const item = rankingData.find((x) => x.id === id);
-    if (!item) return;
-    await editRankingData(id, { isVisible: !item.isVisible });
+    // 1. Instant optimistic UI update
+    setRankingData((prev) =>
+      prev.map((item) => (String(item.id) === String(id) ? { ...item, isVisible: !item.isVisible } : item))
+    );
+    setRankingFAQs((prev) =>
+      prev.map((item) => (String(item.id) === String(id) ? { ...item, isVisible: !item.isVisible } : item))
+    );
+
+    try {
+      // 2. Dedicated PATCH /toggle-visibility/:id
+      await axios.patch(`${API}/toggle-visibility/${id}`);
+    } catch (patchErr) {
+      console.warn("PATCH toggle-visibility failed, trying POST fallback:", patchErr);
+      try {
+        await axios.post(`${API}/toggle-visibility/${id}`);
+      } catch (postErr) {
+        console.warn("POST toggle-visibility failed, trying FAQ_API:", postErr);
+        try {
+          await axios.patch(`${FAQ_API}/toggle-visibility/${id}`);
+        } catch (faqErr) {
+          await axios.post(`${FAQ_API}/toggle-visibility/${id}`);
+        }
+      }
+    } finally {
+      // 3. Keep in sync with server truth
+      await refreshAllRankingData();
+    }
   };
 
   const downloadFile = async (filename: string, originalName?: string) => {
