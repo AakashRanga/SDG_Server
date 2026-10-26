@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import pool from '../../db.js';
-import { runUnifyMigration } from '../migrations/unify_migration.js';
+import { runUnifyMigration } from '../../migrations/unify_migration.js';
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
