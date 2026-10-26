@@ -21,7 +21,15 @@ export const getAssetBaseUrl = () => {
   if (hostname === "localhost" || hostname === "127.0.0.1") {
     return "http://localhost:8006";
   }
-  return window.location.origin;
+  // In live production, static uploaded assets are served on port 80 at sdg.saveetha.com
+  // (Port 8080 is the Vite frontend dev/preview server which does not host uploads)
+  if (hostname.includes("saveetha.com")) {
+    return "http://sdg.saveetha.com";
+  }
+  if (hostname === "180.235.121.250") {
+    return "http://180.235.121.250";
+  }
+  return `${window.location.protocol}//${hostname}`;
 };
 
 const BASE_URL = getBaseUrl();

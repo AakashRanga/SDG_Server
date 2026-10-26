@@ -17,10 +17,22 @@ export default defineConfig(({ mode }) => {
       port,
       strictPort: true,
       allowedHosts: ['sdgportal.saveetha.com', 'localhost', '127.0.0.1'],
+      proxy: {
+        '/uploads': {
+          target: 'http://localhost:8006',
+          changeOrigin: true
+        }
+      }
     },
     preview: {
       host: '0.0.0.0',
       port,
+      proxy: {
+        '/uploads': {
+          target: 'http://localhost:8006',
+          changeOrigin: true
+        }
+      }
     },
   };
 });
